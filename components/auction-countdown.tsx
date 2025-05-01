@@ -1,0 +1,74 @@
+"use client"
+
+import { useEffect, useState } from "react"
+
+interface AuctionCountdownProps {
+  endTime: Date
+}
+
+export function AuctionCountdown({ endTime }: AuctionCountdownProps) {
+  const [timeLeft, setTimeLeft] = useState<{
+    days: number
+    hours: number
+    minutes: number
+    seconds: number
+  }>({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  })
+
+  const [isEnded, setIsEnded] = useState(false)
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const difference = endTime.getTime() - new Date().getTime()
+
+      if (difference <= 0) {
+        setIsEnded(true)
+        return {
+          days: 0,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+        }
+      }
+
+      return {
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((difference / 1000 / 60) % 60),
+        seconds: Math.floor((difference / 1000) % 60),
+      }
+    }
+
+    setTimeLeft(calculateTimeLeft())
+
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft())
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [endTime])
+
+  if (isEnded) {
+    return <span className="text-sm font-medium text-red-500">Ended</span>
+  }
+
+  // For compact display (e.g. in cards)
+  if (timeLeft.days > 0) {
+    return (
+      <span className="text-sm font-medium">
+        {timeLeft.days}d {timeLeft.hours}h
+      </span>
+    )
+  }
+
+  return (
+    <span className="text-sm font-medium">
+      {String(timeLeft.hours).padStart(2, "0")}:{String(timeLeft.minutes).padStart(2, "0")}:
+      {String(timeLeft.seconds).padStart(2, "0")}
+    </span>
+  )
+}

@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,21 +9,26 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { ConnectWalletButton } from "@/components/connect-wallet-button"
 import { ArrowLeft, ImageIcon } from "lucide-react"
 import Link from "next/link"
 
+declare global {
+  interface Window {
+    ethereum: any;
+  }
+}
+
 export default function CreateAuctionPage() {
-  const [isConnected, setIsConnected] = useState(false)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     category: "",
     startingBid: 100,
-    duration: 7, // days
+    duration: 7,
     image: null as File | null,
   })
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null
@@ -41,10 +45,52 @@ export default function CreateAuctionPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" })
+        setIsConnected(true)
+      } catch (err) {
+        console.error("Error connecting wallet:", err)
+      }
+    } else {
+      alert("Please install MetaMask to connect your wallet.")
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulate form submission
-    alert("Auction created successfully!")
+
+    if (!formData.image) {
+      alert("Please upload an image.")
+      return
+    }
+
+    const payload = new FormData()
+    payload.append("title", formData.title)
+    payload.append("description", formData.description)
+    payload.append("category", formData.category)
+    payload.append("startingBid", String(formData.startingBid))
+    payload.append("duration", String(formData.duration))
+    payload.append("image", formData.image)
+
+    try {
+      const res = await fetch("/api/auctions/create", {
+        method: "POST",
+        body: payload,
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.message || "Something went wrong")
+      }
+
+      alert("Auction created successfully!")
+    } catch (err) {
+      console.error(err)
+      alert("Failed to create auction")
+    }
   }
 
   return (
@@ -67,11 +113,13 @@ export default function CreateAuctionPage() {
               <CardDescription>You need to connect your wallet to create an auction.</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center py-6">
-              <ConnectWalletButton />
+              <Button onClick={connectWallet} className="bg-gradient-to-r from-purple-600 to-blue-600">
+                Connect Wallet
+              </Button>
             </CardContent>
           </Card>
         ) : (
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} encType="multipart/form-data">
             <Card>
               <CardHeader>
                 <CardTitle>Auction Details</CardTitle>
@@ -82,6 +130,7 @@ export default function CreateAuctionPage() {
                   <Label htmlFor="title">Item Title</Label>
                   <Input
                     id="title"
+                    name="title"
                     placeholder="Enter a title for your item"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -93,6 +142,7 @@ export default function CreateAuctionPage() {
                   <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
+                    name="description"
                     placeholder="Describe your item in detail"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -108,7 +158,7 @@ export default function CreateAuctionPage() {
                     onValueChange={(value) => setFormData({ ...formData, category: value })}
                     required
                   >
-                    <SelectTrigger id="category">
+                    <SelectTrigger id="category" name="category">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -125,6 +175,7 @@ export default function CreateAuctionPage() {
                   <Label htmlFor="starting-bid">Starting Bid (LSK)</Label>
                   <Input
                     id="starting-bid"
+                    name="startingBid"
                     type="number"
                     min="1"
                     step="1"
@@ -163,13 +214,13 @@ export default function CreateAuctionPage() {
                     >
                       <input
                         id="image"
+                        name="image"
                         type="file"
                         accept="image/*"
                         className="absolute inset-0 cursor-pointer opacity-0"
                         onChange={handleImageChange}
                         required
                       />
-
                       {imagePreview ? (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <img

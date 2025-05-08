@@ -1,14 +1,14 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    unoptimized: true,
-  },
-}
+// next.config.mjs
+export default {
+  webpack(config, { isServer }) {
+    // Fix for native module errors (e.g., .node files)
+    if (!isServer) {
+      config.module.rules.push({
+        test: /\.node$/,
+        use: 'node-loader',
+      });
+    }
 
-export default nextConfig
+    return config;
+  },
+};

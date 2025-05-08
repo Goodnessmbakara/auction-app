@@ -1,13 +1,17 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConnectWalletButton } from "@/components/connect-wallet-button"
-import { useWallet } from "@/contexts/wallet-context"
+
+declare global {
+  interface Window {
+    ethereum: any
+  }
+}
 
 interface BidFormProps {
   currentBid: number
@@ -17,13 +21,32 @@ interface BidFormProps {
 }
 
 export function BidForm({ currentBid, minIncrement, onPlaceBid, isLoading = false }: BidFormProps) {
-  const { isConnected } = useWallet()
+  const [isConnected, setIsConnected] = useState(false)
   const [bidAmount, setBidAmount] = useState(currentBid + minIncrement)
 
   // Update bid amount when current bid changes (real-time updates)
   useEffect(() => {
     setBidAmount(currentBid + minIncrement)
   }, [currentBid, minIncrement])
+
+  // Check if wallet is connected
+  useEffect(() => {
+    if (window.ethereum) {
+      const checkConnection = async () => {
+        const accounts = await window.ethereum.request({ method: "eth_accounts" })
+        setIsConnected(accounts.length > 0)
+      }
+
+      checkConnection()
+
+      // Listen for account changes
+      window.ethereum.on("accountsChanged", checkConnection)
+
+      return () => {
+        window.ethereum.removeListener("accountsChanged", checkConnection)
+      }
+    }
+  }, [])
 
   const handleBidChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number.parseFloat(e.target.value)

@@ -11,7 +11,6 @@ import { AuctionCountdown } from "@/components/auction-countdown"
 import { BidForm } from "@/components/bid-form"
 import { BidHistory } from "@/components/bid-history"
 import { ArrowLeft, Share2, Flag, Heart } from "lucide-react"
-import { useWallet } from "@/contexts/wallet-context"
 import { useToast } from "@/hooks/use-toast"
 import websocketService, { type BidUpdate } from "@/lib/websocket-service"
 
@@ -68,12 +67,12 @@ const initialAuction = {
 }
 
 export default function AuctionDetailsPage({ params }: { params: { id: string } }) {
-  const { isConnected, address } = useWallet()
   const { toast } = useToast()
   const [auction, setAuction] = useState(initialAuction)
   const [isLoading, setIsLoading] = useState(true)
   const [isBidding, setIsBidding] = useState(false)
   const [newBidNotification, setNewBidNotification] = useState<BidUpdate | null>(null)
+  const [currentWalletAddress, setCurrentWalletAddress] = useState<string | null>(null)
 
   // Fetch auction data
   useEffect(() => {
@@ -129,7 +128,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
             }))
 
             // Show notification if the bid is not from the current user
-            if (address !== data.bidder) {
+            if (currentWalletAddress !== data.bidder) {
               setNewBidNotification(data)
 
               // Clear notification after 5 seconds
@@ -151,11 +150,11 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
     }
 
     connectWebSocket()
-  }, [params.id, address])
+  }, [params.id, currentWalletAddress])
 
   // Handle bid submission
   const handlePlaceBid = async (bidAmount: number) => {
-    if (!isConnected || !address) {
+    if (!currentWalletAddress) {
       toast({
         title: "Wallet Not Connected",
         description: "Please connect your wallet to place a bid.",
@@ -175,7 +174,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
         // Simulate WebSocket update
         const bidUpdate: BidUpdate = {
           auctionId: params.id,
-          bidder: address,
+          bidder: currentWalletAddress,
           bidAmount: bidAmount,
           timestamp: Date.now(),
         }
@@ -186,7 +185,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
           currentBid: bidAmount,
           bids: [
             {
-              bidder: address,
+              bidder: currentWalletAddress,
               amount: bidAmount,
               time: new Date(),
             },
@@ -267,159 +266,67 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
               <Button variant="outline" size="icon" className="h-8 w-8 rounded-full bg-background/80 backdrop-blur">
                 <Share2 className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full bg-background/80 backdrop-blur">
-                <Flag className="h-4 w-4" />
-              </Button>
             </div>
             <Image
-              src={auction.image || "/placeholder.svg"}
+              src={auction.image}
               alt={auction.title}
               width={600}
               height={600}
-              className="aspect-square w-full object-cover"
+              className="object-cover w-full h-full"
             />
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Item Details</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Category</p>
-                  <p className="font-medium">{auction.category}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Created</p>
-                  <p className="font-medium">{auction.created.toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Starting Bid</p>
-                  <p className="font-medium">{auction.startingBid} LSK</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Minimum Increment</p>
-                  <p className="font-medium">{auction.minBidIncrement} LSK</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Right Column - Details and Bidding */}
-        <div className="flex flex-col gap-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-purple-500 text-purple-500">
-                {auction.category}
-              </Badge>
-              <p className="text-sm text-muted-foreground">
-                Auction ends in <AuctionCountdown endTime={auction.endTime} />
-              </p>
-            </div>
-
-            <h1 className="mt-2 text-3xl font-bold">{auction.title}</h1>
-
-            <div className="mt-4 flex items-center gap-2">
-              <div className="h-6 w-6 rounded-full bg-purple-500"></div>
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium">{auction.seller.name}</span>
-                {auction.seller.verified && (
-                  <Badge variant="secondary" className="h-5 px-1">
-                    ✓
-                  </Badge>
-                )}
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {auction.seller.address.substring(0, 6)}...
-                {auction.seller.address.substring(auction.seller.address.length - 4)}
-              </span>
-            </div>
-
-            <p className="mt-4 text-muted-foreground">{auction.description}</p>
-          </div>
-
-          <Card>
+        {/* Right Column - Auction Details */}
+        <div className="flex flex-col gap-4">
+          <Card className="flex flex-col gap-4">
             <CardHeader>
-              <CardTitle>Current Bid</CardTitle>
-              <CardDescription>Place your bid to win this auction</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4">
-                <p className="text-sm text-muted-foreground">Highest Bid</p>
-                <p className="text-3xl font-bold">{auction.currentBid} LSK</p>
-              </div>
-
-              <BidForm
-                currentBid={auction.currentBid}
-                minIncrement={auction.minBidIncrement}
-                onPlaceBid={handlePlaceBid}
-                isLoading={isBidding}
-              />
-            </CardContent>
-          </Card>
-
-          <Tabs defaultValue="bids">
-            <TabsList className="w-full">
-              <TabsTrigger value="bids" className="flex-1">
-                Bid History
-              </TabsTrigger>
-              <TabsTrigger value="details" className="flex-1">
-                Details
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="bids">
-              <Card>
-                <CardContent className="p-4">
-                  <BidHistory bids={auction.bids} />
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="details">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-semibold">Blockchain Details</h3>
-                      <div className="mt-2 grid grid-cols-1 gap-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Contract Address</span>
-                          <span className="font-mono">0x1a2b...3c4d</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Token ID</span>
-                          <span className="font-mono">42</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Blockchain</span>
-                          <span>Lisk</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold">Auction Details</h3>
-                      <div className="mt-2 grid grid-cols-1 gap-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Auction ID</span>
-                          <span className="font-mono">{auction.id}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Created</span>
-                          <span>{auction.created.toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Starting Bid</span>
-                          <span>{auction.startingBid} LSK</span>
-                        </div>
-                      </div>
-                    </div>
+              <div className="flex justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{auction.category}</Badge>
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">{auction.seller.name}</span>
+                    {auction.seller.verified && <Flag className="h-4 w-4 text-yellow-400" />}
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                </div>
+                <div className="flex items-center gap-1">
+                  <p className="font-semibold">{auction.currentBid} LSK</p>
+                  <span className="text-sm text-muted-foreground">Current Bid</span>
+                </div>
+              </div>
+              <CardTitle>{auction.title}</CardTitle>
+              <CardDescription>{auction.description}</CardDescription>
+            </CardHeader>
+
+            <Tabs defaultValue="auction">
+              <TabsList className="grid grid-cols-3 gap-2">
+                <TabsTrigger value="auction">Auction</TabsTrigger>
+                <TabsTrigger value="bids">Bid History</TabsTrigger>
+                <TabsTrigger value="details">Details</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="auction">
+                <AuctionCountdown endTime={auction.endTime} />
+                <BidForm
+                  currentBid={auction.currentBid}
+                  minBidIncrement={auction.minBidIncrement}
+                  onPlaceBid={handlePlaceBid}
+                  isBidding={isBidding}
+                />
+              </TabsContent>
+              <TabsContent value="bids">
+                <BidHistory bids={auction.bids} />
+              </TabsContent>
+              <TabsContent value="details">
+                <p>
+                  <strong>Seller Address:</strong> {auction.seller.address}
+                </p>
+                <p>
+                  <strong>Created On:</strong> {new Date(auction.created).toLocaleDateString()}
+                </p>
+              </TabsContent>
+            </Tabs>
+          </Card>
         </div>
       </div>
     </div>

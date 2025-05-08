@@ -22,7 +22,7 @@ class WebSocketService {
   private socket: WebSocket | null = null
   private url: string
   private reconnectAttempts = 0
-  private maxReconnectAttempts = 5
+  private maxReconnectAttempts = 10
   private reconnectTimeout = 3000
   private reconnectTimer: NodeJS.Timeout | null = null
   private messageHandlers: Map<string, MessageHandler[]> = new Map()
@@ -33,7 +33,7 @@ class WebSocketService {
     this.url = url
   }
 
-  // Connect to WebSocket server
+  // Connect to WebSocket server with retry logic
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
@@ -78,11 +78,12 @@ class WebSocketService {
       } catch (error) {
         console.error("Failed to connect to WebSocket:", error)
         reject(error)
+        this.attemptReconnect() // Start retrying on connection failure
       }
     })
   }
 
-  // Attempt to reconnect
+  // Attempt to reconnect with exponential backoff
   private attemptReconnect(): void {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
@@ -90,13 +91,15 @@ class WebSocketService {
 
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
+      const delay = Math.min(this.reconnectTimeout * this.reconnectAttempts, 30000) // Exponential backoff
+
       console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`)
 
       this.reconnectTimer = setTimeout(() => {
         this.connect().catch(() => {
           this.attemptReconnect()
         })
-      }, this.reconnectTimeout)
+      }, delay)
     } else {
       console.error("Max reconnect attempts reached")
     }

@@ -1,42 +1,82 @@
-// components/connect-wallet-button.tsx
-
 "use client"
 
-import { useAccount, useConnect, useDisconnect } from "wagmi"
+import { useState } from "react"
+import { useAccount, useConnect, useDisconnect, Connector } from "wagmi"
 import { Button } from "@/components/ui/button"
-import { Wallet, ArrowRight, LogOut } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Wallet, LogOut, Loader2 } from "lucide-react"
 
 export function ConnectWalletButton() {
-  const { isConnected, address } = useAccount()  // use Wagmi's useAccount hook
-  const { connect, connectors } = useConnect()  // use connect for wallet connection
-  const { disconnect } = useDisconnect()  // use disconnect for wallet disconnect
+  const { isConnected, address } = useAccount()
+  const { connect, connectors } = useConnect()
+  const { disconnect } = useDisconnect()
 
-  if (isConnected) {
-    return (
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" className="gap-2">
-          <span className="h-2 w-2 rounded-full bg-green-500"></span>
-          <span className="hidden md:inline-block">
-            {address?.substring(0, 6)}...{address?.substring(address.length - 4)}
-          </span>
-          <span className="md:hidden">{address?.substring(0, 4)}...</span>
-        </Button>
-        <Button variant="ghost" size="icon" onClick={disconnect} className="h-8 w-8">
-          <LogOut className="h-4 w-4" />
-        </Button>
-      </div>
-    )
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [activeConnector, setActiveConnector] = useState<Connector | null>(null)
+
+  const handleConnect = async (connector: Connector) => {
+    console.log("Attempting to connect with:", connector.name)
+    setIsConnecting(true)
+    setActiveConnector(connector)
+
+    try {
+      await connect({ connector })
+      // Dropdown will close automatically since we removed manual open control
+    } catch (error) {
+      console.error("Connection failed:", error)
+    } finally {
+      setIsConnecting(false)
+    }
   }
 
   return (
-    <div className="flex flex-col">
-      {connectors.map((connector) => (
-        <Button key={connector.id} onClick={() => connect(connector)} size="sm" className="gap-2">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
           <Wallet className="h-4 w-4" />
-          {`Connect ${connector.name}`}
-          <ArrowRight className="ml-2 h-4 w-4" />
+          {isConnected
+            ? `${address?.slice(0, 6)}...${address?.slice(-4)}`
+            : "Connect Wallet"}
         </Button>
-      ))}
-    </div>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end" className="w-56">
+        {isConnected ? (
+          <DropdownMenuItem
+            onClick={() => {
+              disconnect()
+              // No need to manually close dropdown, it closes automatically
+            }}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Disconnect
+          </DropdownMenuItem>
+        ) : (
+          connectors.map((connector) => (
+            <DropdownMenuItem
+              key={connector.id}
+              onClick={() => handleConnect(connector)}
+              // Temporarily disable disabling to test clickability
+              // disabled={!connector.ready || isConnecting}
+              className="flex items-center gap-2"
+            >
+              {isConnecting && activeConnector?.id === connector.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wallet className="h-4 w-4" />
+              )}
+              {connector.name}
+              
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

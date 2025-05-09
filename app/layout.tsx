@@ -1,3 +1,4 @@
+// app/layout.tsx
 import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
@@ -5,7 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 import { Toaster } from "@/components/ui/toaster"
-import { WalletWrapper } from "@/components/wallet-wrapper"
+import { WagmiAppProvider } from '@/providers/wallet-provider'
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -22,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen bg-background`}>
-        <WalletWrapper>
+        <WagmiAppProvider> 
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
             <div className="flex min-h-screen flex-col">
               <Navbar />
@@ -31,7 +32,7 @@ export default function RootLayout({
             </div>
             <Toaster />
           </ThemeProvider>
-        </WalletWrapper>
+        </WagmiAppProvider>
       </body>
     </html>
   )

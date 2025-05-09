@@ -1,28 +1,19 @@
-"use client"
+import { http, createConfig } from 'wagmi'
+import { base, mainnet, optimism } from 'wagmi/chains'
+import { injected, metaMask, safe, walletConnect } from 'wagmi/connectors'
 
-import { ReactNode } from "react"
-import { WagmiConfig, configureChains, createConfig, http } from "wagmi"
-import { getDefaultWallets, RainbowKitProvider } from "@rainbow-me/rainbowkit"
-import { liskSepolia } from "@/lib/lisk-chain"
+const projectId = 'e21343657a112adab1bc42ddde78c8fd'
 
-const { chains, publicClient } = configureChains([liskSepolia], [http()])
-
-const { connectors } = getDefaultWallets({
-  appName: "AvaBid",
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-  chains,
+export const config = createConfig({
+  chains: [mainnet, base],
+  connectors: [
+    injected(),
+    walletConnect({ projectId }),
+    metaMask(),
+    safe(),
+  ],
+  transports: {
+    [mainnet.id]: http(),
+    [base.id]: http(),
+  },
 })
-
-const wagmiConfig = createConfig({
-  autoConnect: true,
-  connectors,
-  publicClient,
-})
-
-export function Web3Provider({ children }: { children: ReactNode }) {
-  return (
-    <WagmiConfig config={wagmiConfig}>
-      <RainbowKitProvider chains={chains}>{children}</RainbowKitProvider>
-    </WagmiConfig>
-  )
-}

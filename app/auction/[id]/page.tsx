@@ -13,6 +13,7 @@ import { BidHistory } from "@/components/bid-history"
 import { ArrowLeft, Share2, Flag, Heart } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import websocketService, { type BidUpdate } from "@/lib/websocket-service"
+import { useAccount } from "wagmi"
 
 // Mock data for a single auction
 const initialAuction = {
@@ -72,7 +73,8 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
   const [isLoading, setIsLoading] = useState(true)
   const [isBidding, setIsBidding] = useState(false)
   const [newBidNotification, setNewBidNotification] = useState<BidUpdate | null>(null)
-  const [currentWalletAddress, setCurrentWalletAddress] = useState<string | null>(null)
+
+  const { address, isConnected } = useAccount() // Use Wagmi's hook
 
   // Fetch auction data
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
   // Set up WebSocket connection for real-time updates
   useEffect(() => {
     const connectWebSocket = async () => {
-      try {
+      try { // TODO: Handle WebSocket connection state and errors more robustly
         await websocketService.connect()
 
         // Subscribe to auction updates
@@ -128,7 +130,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
             }))
 
             // Show notification if the bid is not from the current user
-            if (currentWalletAddress !== data.bidder) {
+            if (address !== data.bidder) { // Use address from Wagmi
               setNewBidNotification(data)
 
               // Clear notification after 5 seconds
@@ -149,14 +151,14 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
       }
     }
 
-    connectWebSocket()
-  }, [params.id, currentWalletAddress])
+    connectWebSocket() // TODO: Consider reconnect logic if connection drops
+  }, [params.id, address]) // Depend on address so WebSocket logic updates if wallet changes
 
   // Handle bid submission
   const handlePlaceBid = async (bidAmount: number) => {
-    if (!currentWalletAddress) {
+    if (!isConnected || !address) { // Use isConnected and address from Wagmi
       toast({
-        title: "Wallet Not Connected",
+        title: "Wallet Required",
         description: "Please connect your wallet to place a bid.",
         variant: "destructive",
       })
@@ -174,8 +176,8 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
         // Simulate WebSocket update
         const bidUpdate: BidUpdate = {
           auctionId: params.id,
-          bidder: currentWalletAddress,
-          bidAmount: bidAmount,
+          bidder: address,
+          bidAmount: bidAmount, // This should be the final bid amount after the user's input
           timestamp: Date.now(),
         }
 
@@ -185,7 +187,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
           currentBid: bidAmount,
           bids: [
             {
-              bidder: currentWalletAddress,
+              bidder: address, // Use address from Wagmi
               amount: bidAmount,
               time: new Date(),
             },
@@ -243,7 +245,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
                 </div>
                 <div>
                   <p className="font-semibold">New Bid!</p>
-                  <p className="text-sm">
+                  <p className="text-sm text-muted-foreground">
                     {newBidNotification.bidder.substring(0, 6)}...
                     {newBidNotification.bidder.substring(newBidNotification.bidder.length - 4)} placed a bid of{" "}
                     <span className="font-semibold">{newBidNotification.bidAmount} LSK</span>
@@ -312,6 +314,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
                   minBidIncrement={auction.minBidIncrement}
                   onPlaceBid={handlePlaceBid}
                   isBidding={isBidding}
+                  // BidForm component should handle its own connection check using useAccount internally
                 />
               </TabsContent>
               <TabsContent value="bids">

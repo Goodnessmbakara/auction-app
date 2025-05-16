@@ -10,13 +10,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { ArrowLeft, ImageIcon } from "lucide-react"
+import { useAccount } from "wagmi"
 import Link from "next/link"
-
-declare global {
-  interface Window {
-    ethereum: any;
-  }
-}
 
 export default function CreateAuctionPage() {
   const [formData, setFormData] = useState({
@@ -28,7 +23,7 @@ export default function CreateAuctionPage() {
     image: null as File | null,
   })
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [isConnected, setIsConnected] = useState(false)
+  const { isConnected } = useAccount() // Use Wagmi's useAccount hook
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null
@@ -42,19 +37,6 @@ export default function CreateAuctionPage() {
       reader.readAsDataURL(file)
     } else {
       setImagePreview(null)
-    }
-  }
-
-  const connectWallet = async () => {
-    if (window.ethereum) {
-      try {
-        await window.ethereum.request({ method: "eth_requestAccounts" })
-        setIsConnected(true)
-      } catch (err) {
-        console.error("Error connecting wallet:", err)
-      }
-    } else {
-      alert("Please install MetaMask to connect your wallet.")
     }
   }
 
@@ -113,9 +95,7 @@ export default function CreateAuctionPage() {
               <CardDescription>You need to connect your wallet to create an auction.</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center py-6">
-              <Button onClick={connectWallet} className="bg-gradient-to-r from-purple-600 to-blue-600">
-                Connect Wallet
-              </Button>
+              {/* The user should connect via the Navbar or a dedicated ConnectButton component */}
             </CardContent>
           </Card>
         ) : (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAccount, useConnect, useDisconnect, Connector } from "wagmi"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,6 +18,11 @@ export function ConnectWalletButton() {
 
   const [isConnecting, setIsConnecting] = useState(false)
   const [activeConnector, setActiveConnector] = useState<Connector | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleConnect = async (connector: Connector) => {
     console.log("Attempting to connect with:", connector.name)
@@ -26,12 +31,21 @@ export function ConnectWalletButton() {
 
     try {
       await connect({ connector })
-      // Dropdown will close automatically since we removed manual open control
     } catch (error) {
       console.error("Connection failed:", error)
     } finally {
       setIsConnecting(false)
     }
+  }
+
+  // Don't render anything until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <Button variant="outline" size="sm" className="gap-2">
+        <Wallet className="h-4 w-4" />
+        Connect Wallet
+      </Button>
+    )
   }
 
   return (
@@ -48,10 +62,7 @@ export function ConnectWalletButton() {
       <DropdownMenuContent align="end" className="w-56">
         {isConnected ? (
           <DropdownMenuItem
-            onClick={() => {
-              disconnect()
-              // No need to manually close dropdown, it closes automatically
-            }}
+            onClick={() => disconnect()}
             className="flex items-center gap-2"
           >
             <LogOut className="h-4 w-4" />
@@ -62,8 +73,6 @@ export function ConnectWalletButton() {
             <DropdownMenuItem
               key={connector.id}
               onClick={() => handleConnect(connector)}
-              // Temporarily disable disabling to test clickability
-              // disabled={!connector.ready || isConnecting}
               className="flex items-center gap-2"
             >
               {isConnecting && activeConnector?.id === connector.id ? (
@@ -72,7 +81,6 @@ export function ConnectWalletButton() {
                 <Wallet className="h-4 w-4" />
               )}
               {connector.name}
-              
             </DropdownMenuItem>
           ))
         )}

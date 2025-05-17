@@ -1,4 +1,10 @@
+// Sources flattened with hardhat v2.23.0 https://hardhat.org
+
 // SPDX-License-Identifier: MIT
+
+// File contracts/Auction.sol
+
+// Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.9;
 
 contract Auction {
@@ -127,5 +133,34 @@ contract Auction {
 
     function getBiddersCount() external view returns (uint256) {
         return bidders.length;
+    }
+}
+
+
+// File contracts/AuctionFactory.sol
+
+// Original license: SPDX_License_Identifier: MIT
+pragma solidity ^0.8.9;
+
+contract AuctionFactory {
+    // Event emitted when a new auction is created
+    event AuctionCreated(address indexed auction, address indexed seller);
+
+    // Creates a new Auction contract and returns its address
+    function createAuction(
+        string memory _title,
+        string memory _ipfsImageHash,
+        uint256 _startingBid,
+        uint256 _duration
+    ) external returns (address) {
+        Auction auction = new Auction(
+            msg.sender,
+            _title,
+            _ipfsImageHash,
+            _startingBid,
+            _duration
+        );
+        emit AuctionCreated(address(auction), msg.sender);
+        return address(auction);
     }
 }

@@ -21,7 +21,7 @@ const initialAuction = {
   title: "Cosmic Voyager #42",
   description:
     "A stunning digital artwork exploring the vastness of space and the human desire for exploration. This piece represents the journey of humanity beyond our planet, into the unknown reaches of the cosmos.",
-  image: "/placeholder.svg?height=600&width=600",
+  image: "/placeholder.jpg?height=600&width=600",
   category: "Digital Art",
   seller: {
     address: "lsk24cd35u4jdq8szo3pnsqe5dsxwrnazyqqqg5eu",

@@ -44,7 +44,7 @@ export default function HomePage() {
                   <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-4">
                     <div className="overflow-hidden rounded-lg bg-muted">
                       <Image
-                        src="/placeholder.svg?height=200&width=200"
+                        src="/placeholder.jpg?height=200&width=200"
                         alt="NFT"
                         width={200}
                         height={200}
@@ -53,7 +53,7 @@ export default function HomePage() {
                     </div>
                     <div className="overflow-hidden rounded-lg bg-muted">
                       <Image
-                        src="/placeholder.svg?height=200&width=200"
+                        src="/placeholder.jpg?height=200&width=200"
                         alt="NFT"
                         width={200}
                         height={200}
@@ -62,7 +62,7 @@ export default function HomePage() {
                     </div>
                     <div className="overflow-hidden rounded-lg bg-muted">
                       <Image
-                        src="/placeholder.svg?height=200&width=200"
+                        src="/placeholder.jpg?height=200&width=200"
                         alt="NFT"
                         width={200}
                         height={200}
@@ -71,7 +71,7 @@ export default function HomePage() {
                     </div>
                     <div className="overflow-hidden rounded-lg bg-muted">
                       <Image
-                        src="/placeholder.svg?height=200&width=200"
+                        src="/placeholder.jpg?height=200&width=200"
                         alt="NFT"
                         width={200}
                         height={200}

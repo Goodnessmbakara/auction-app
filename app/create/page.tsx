@@ -12,6 +12,7 @@ import { Slider } from "@/components/ui/slider"
 import { ArrowLeft, ImageIcon } from "lucide-react"
 import { useAccount } from "wagmi"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 export default function CreateAuctionPage() {
   const [formData, setFormData] = useState({
@@ -23,15 +24,19 @@ export default function CreateAuctionPage() {
     image: null as File | null,
   })
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const { isConnected } = useAccount() // Use Wagmi's useAccount hook
+  const { isConnected, address } = useAccount()
+  const { toast } = useToast()
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("[CreateAuction] Image change event triggered")
     const file = e.target.files?.[0] || null
+    console.log("[CreateAuction] Selected file:", file?.name, "Size:", file?.size)
     setFormData({ ...formData, image: file })
 
     if (file) {
       const reader = new FileReader()
       reader.onloadend = () => {
+        console.log("[CreateAuction] Image preview generated")
         setImagePreview(reader.result as string)
       }
       reader.readAsDataURL(file)
@@ -42,9 +47,33 @@ export default function CreateAuctionPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("[CreateAuction] Form submission started")
+    console.log("[CreateAuction] Form data:", {
+      ...formData,
+      image: formData.image ? {
+        name: formData.image.name,
+        size: formData.image.size,
+        type: formData.image.type
+      } : null
+    })
+
+    if (!isConnected || !address) {
+      console.log("[CreateAuction] Wallet not connected")
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet to create an auction.",
+        variant: "destructive",
+      })
+      return
+    }
 
     if (!formData.image) {
-      alert("Please upload an image.")
+      console.log("[CreateAuction] No image selected")
+      toast({
+        title: "Image Required",
+        description: "Please upload an image for your auction.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -55,23 +84,34 @@ export default function CreateAuctionPage() {
     payload.append("startingBid", String(formData.startingBid))
     payload.append("duration", String(formData.duration))
     payload.append("image", formData.image)
+    payload.append("sellerAddress", address)
 
+    console.log("[CreateAuction] Sending request to /api/auction/create-auction")
     try {
-      const res = await fetch("/api/auctions/create", {
+      const res = await fetch("/api/auction/create-auction", {
         method: "POST",
         body: payload,
       })
 
       const data = await res.json()
+      console.log("[CreateAuction] Server response:", data)
 
       if (!res.ok) {
         throw new Error(data.message || "Something went wrong")
       }
 
-      alert("Auction created successfully!")
+      console.log("[CreateAuction] Auction created successfully")
+      toast({
+        title: "Success",
+        description: "Your auction has been created successfully!",
+      })
     } catch (err) {
-      console.error(err)
-      alert("Failed to create auction")
+      console.error("[CreateAuction] Error creating auction:", err)
+      toast({
+        title: "Error",
+        description: "Failed to create auction. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -204,7 +244,7 @@ export default function CreateAuctionPage() {
                       {imagePreview ? (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <img
-                            src={imagePreview || "/placeholder.svg"}
+                            src={imagePreview || "/placeholder.jpg"}
                             alt="Preview"
                             className="h-full w-full rounded-lg object-contain p-2"
                           />

@@ -17,7 +17,7 @@ const mockData = {
     {
       id: "1",
       title: "Cosmic Voyager #42",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "/placeholder.jpg?height=200&width=200",
       currentBid: 1250,
       endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
       bids: 6,
@@ -25,7 +25,7 @@ const mockData = {
     {
       id: "2",
       title: "Blockchain Pioneer",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "/placeholder.jpg?height=200&width=200",
       currentBid: 890,
       endTime: new Date(Date.now() + 8 * 60 * 60 * 1000), // 8 hours from now
       bids: 4,
@@ -35,7 +35,7 @@ const mockData = {
     {
       id: "3",
       title: "Neon Genesis",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "/placeholder.jpg?height=200&width=200",
       currentBid: 3400,
       yourBid: 3200,
       endTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // 4 days from now
@@ -44,7 +44,7 @@ const mockData = {
     {
       id: "4",
       title: "Crypto Punk #1337",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "/placeholder.jpg?height=200&width=200",
       currentBid: 5600,
       yourBid: 5600,
       endTime: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000), // 1 day from now
@@ -55,14 +55,14 @@ const mockData = {
     {
       id: "5",
       title: "Digital Dreamscape",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "/placeholder.jpg?height=200&width=200",
       finalBid: 2800,
       wonDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
     },
     {
       id: "6",
       title: "Metaverse Parcel #789",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "/placeholder.jpg?height=200&width=200",
       finalBid: 4500,
       wonDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
     },
@@ -130,7 +130,7 @@ export default function DashboardPage() {
                         {auction.bids} {auction.bids === 1 ? "bid" : "bids"}
                       </Badge>
                       <Image
-                        src={auction.image || "/placeholder.svg"}
+                        src={auction.image || "/placeholder.jpg"}
                         alt={auction.title}
                         width={300}
                         height={200}
@@ -189,7 +189,7 @@ export default function DashboardPage() {
                         {auction.status === "highest" ? "Highest Bid" : "Outbid"}
                       </Badge>
                       <Image
-                        src={auction.image || "/placeholder.svg"}
+                        src={auction.image || "/placeholder.jpg"}
                         alt={auction.title}
                         width={300}
                         height={200}
@@ -253,7 +253,7 @@ export default function DashboardPage() {
                     <div className="relative aspect-video overflow-hidden">
                       <Badge className="absolute right-2 top-2 z-10 bg-green-500">Won</Badge>
                       <Image
-                        src={item.image || "/placeholder.svg"}
+                        src={item.image || "/placeholder.jpg"}
                         alt={item.title}
                         width={300}
                         height={200}

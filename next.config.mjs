@@ -11,4 +11,9 @@ export default {
 
     return config;
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb'
+    }
+  }
 };

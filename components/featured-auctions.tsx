@@ -9,7 +9,7 @@ const auctions = [
   {
     id: "1",
     title: "Cosmic Voyager #42",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 1250,
     endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
     category: "Digital Art",
@@ -17,7 +17,7 @@ const auctions = [
   {
     id: "2",
     title: "Blockchain Pioneer",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 890,
     endTime: new Date(Date.now() + 8 * 60 * 60 * 1000), // 8 hours from now
     category: "Collectible",
@@ -25,7 +25,7 @@ const auctions = [
   {
     id: "3",
     title: "Neon Genesis",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 3400,
     endTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // 4 days from now
     category: "Virtual Land",
@@ -33,7 +33,7 @@ const auctions = [
   {
     id: "4",
     title: "Crypto Punk #1337",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 5600,
     endTime: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000), // 1 day from now
     category: "Avatar",
@@ -49,7 +49,7 @@ export function FeaturedAuctions() {
             <div className="relative aspect-square overflow-hidden">
               <Badge className="absolute left-2 top-2 z-10">{auction.category}</Badge>
               <Image
-                src={auction.image || "/placeholder.svg"}
+                src={auction.image || "/placeholder.jpg"}
                 alt={auction.title}
                 width={400}
                 height={400}

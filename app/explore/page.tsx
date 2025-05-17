@@ -29,7 +29,7 @@ const mockAuctions = [
   {
     id: "1",
     title: "Cosmic Voyager #42",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 1250,
     endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
     category: "Digital Art",
@@ -37,7 +37,7 @@ const mockAuctions = [
   {
     id: "2",
     title: "Blockchain Pioneer",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 890,
     endTime: new Date(Date.now() + 8 * 60 * 60 * 1000),
     category: "Collectible",
@@ -45,7 +45,7 @@ const mockAuctions = [
   {
     id: "3",
     title: "Neon Genesis",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 3400,
     endTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
     category: "Virtual Land",
@@ -53,7 +53,7 @@ const mockAuctions = [
   {
     id: "4",
     title: "Crypto Punk #1337",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 5600,
     endTime: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
     category: "Avatar",
@@ -61,7 +61,7 @@ const mockAuctions = [
   {
     id: "5",
     title: "Digital Dreamscape",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 2200,
     endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
     category: "Digital Art",
@@ -69,7 +69,7 @@ const mockAuctions = [
   {
     id: "6",
     title: "Metaverse Parcel #789",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 4500,
     endTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
     category: "Virtual Land",
@@ -77,7 +77,7 @@ const mockAuctions = [
   {
     id: "7",
     title: "Pixel Warrior",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 750,
     endTime: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
     category: "Game Asset",
@@ -85,7 +85,7 @@ const mockAuctions = [
   {
     id: "8",
     title: "Crypto Kitty #42",
-    image: "/placeholder.svg?height=400&width=400",
+    image: "/placeholder.jpg?height=400&width=400",
     currentBid: 1800,
     endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
     category: "Collectible",
@@ -340,7 +340,7 @@ export default function ExplorePage() {
                     <div className="relative aspect-square overflow-hidden">
                       <Badge className="absolute left-2 top-2 z-10">{auction.category}</Badge>
                       <Image
-                        src={auction.image || "/placeholder.svg"}
+                        src={auction.image || "/placeholder.jpg"}
                         alt={auction.title}
                         width={400}
                         height={400}

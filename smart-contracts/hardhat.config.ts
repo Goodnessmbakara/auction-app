@@ -1,12 +1,39 @@
-require('@nomiclabs/hardhat-ethers');
-require('dotenv').config();
+import { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-toolbox";
+import "dotenv/config";
 
-module.exports = {
-  solidity: "0.8.20",
-  networks: {
-    lisk: {
-      url: process.env.LISK_RPC_URL, // Your Lisk RPC URL (e.g., for the testnet or mainnet)
-      accounts: [process.env.PRIVATE_KEY],
+const config: HardhatUserConfig = {
+  solidity: {
+    version: "0.8.9",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
     },
   },
+  networks: {
+    fuji: {
+      url: process.env.AVALANCHE_RPC_URL || "https://api.avax-test.network/ext/bc/C/rpc",
+      chainId: 43113,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+  },
+  etherscan: {
+    apiKey: {
+      fuji: "",
+    },
+    customChains: [
+      {
+        network: "fuji",
+        chainId: 43113,
+        urls: {
+          apiURL: "https://api-testnet.snowtrace.io/api",
+          browserURL: "https://testnet.snowtrace.io",
+        },
+      },
+    ],
+  },
 };
+
+export default config;

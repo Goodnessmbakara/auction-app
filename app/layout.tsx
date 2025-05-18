@@ -11,8 +11,8 @@ import { WagmiAppProvider } from '@/providers/wallet-provider'
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Auction App",
-  description: "An auction platform on Lisk EVM",
+  title: "AvaBid",
+  description: "Decentralized auction platform powered by blockchain technology",
 }
 
 export default function RootLayout({

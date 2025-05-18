@@ -9,10 +9,17 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { ArrowLeft, ImageIcon } from "lucide-react"
+import { ArrowLeft, ImageIcon, Upload, Sparkles } from "lucide-react"
 import { useAccount } from "wagmi"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { Raleway, Poppins } from "next/font/google"
+
+const raleway = Raleway({ subsets: ["latin"] })
+const poppins = Poppins({ 
+  weight: ['400', '500', '600'],
+  subsets: ["latin"] 
+})
 
 export default function CreateAuctionPage() {
   const [formData, setFormData] = useState({
@@ -119,20 +126,25 @@ export default function CreateAuctionPage() {
     <div className="container py-8">
       <Link
         href="/"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
+        className="inline-flex items-center gap-1 text-sm text-[#EC38BC] hover:text-[#FF3CAC] mb-6 group"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
         Back to auctions
       </Link>
 
       <div className="mx-auto max-w-2xl">
-        <h1 className="text-3xl font-bold mb-6">Create New Auction</h1>
+        <div className="flex items-center gap-2 mb-6">
+          <Sparkles className="h-6 w-6 text-[#EC38BC]" />
+          <h1 className={`${raleway.className} text-3xl font-bold text-[#1C043C]`}>Create New Auction</h1>
+        </div>
 
         {!isConnected ? (
-          <Card>
+          <Card className="bg-[#1C043C]/50 backdrop-blur border-[#EC38BC]/20">
             <CardHeader>
-              <CardTitle>Connect Your Wallet</CardTitle>
-              <CardDescription>You need to connect your wallet to create an auction.</CardDescription>
+              <CardTitle className={`${raleway.className} text-white`}>Connect Your Wallet</CardTitle>
+              <CardDescription className={`${poppins.className} text-[#EC38BC]`}>
+                You need to connect your wallet to create an auction.
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center py-6">
               {/* The user should connect via the Navbar or a dedicated ConnectButton component */}
@@ -140,14 +152,16 @@ export default function CreateAuctionPage() {
           </Card>
         ) : (
           <form onSubmit={handleSubmit} encType="multipart/form-data">
-            <Card>
+            <Card className="bg-[#1C043C]/50 backdrop-blur border-[#EC38BC]/20">
               <CardHeader>
-                <CardTitle>Auction Details</CardTitle>
-                <CardDescription>Fill in the details for your new auction item.</CardDescription>
+                <CardTitle className={`${raleway.className} text-white`}>Auction Details</CardTitle>
+                <CardDescription className={`${poppins.className} text-[#EC38BC]`}>
+                  Fill in the details for your new auction item.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Item Title</Label>
+                  <Label htmlFor="title" className={`${poppins.className} text-white`}>Item Title</Label>
                   <Input
                     id="title"
                     name="title"
@@ -155,11 +169,12 @@ export default function CreateAuctionPage() {
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
+                    className="bg-[#090214]/50 border-[#EC38BC]/20 text-white placeholder:text-white/50 focus:border-[#EC38BC] focus:ring-[#EC38BC]"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description" className={`${poppins.className} text-white`}>Description</Label>
                   <Textarea
                     id="description"
                     name="description"
@@ -167,32 +182,32 @@ export default function CreateAuctionPage() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     required
-                    className="min-h-[120px]"
+                    className="min-h-[120px] bg-[#090214]/50 border-[#EC38BC]/20 text-white placeholder:text-white/50 focus:border-[#EC38BC] focus:ring-[#EC38BC]"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category" className={`${poppins.className} text-white`}>Category</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData({ ...formData, category: value })}
                     required
                   >
-                    <SelectTrigger id="category" name="category">
+                    <SelectTrigger id="category" name="category" className="bg-[#090214]/50 border-[#EC38BC]/20 text-white focus:border-[#EC38BC] focus:ring-[#EC38BC]">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="digital-art">Digital Art</SelectItem>
-                      <SelectItem value="collectible">Collectible</SelectItem>
-                      <SelectItem value="virtual-land">Virtual Land</SelectItem>
-                      <SelectItem value="avatar">Avatar</SelectItem>
-                      <SelectItem value="game-asset">Game Asset</SelectItem>
+                    <SelectContent className="bg-[#1C043C] border-[#EC38BC]/20">
+                      <SelectItem value="digital-art" className="text-white hover:bg-[#EC38BC]/20">Digital Art</SelectItem>
+                      <SelectItem value="collectible" className="text-white hover:bg-[#EC38BC]/20">Collectible</SelectItem>
+                      <SelectItem value="virtual-land" className="text-white hover:bg-[#EC38BC]/20">Virtual Land</SelectItem>
+                      <SelectItem value="avatar" className="text-white hover:bg-[#EC38BC]/20">Avatar</SelectItem>
+                      <SelectItem value="game-asset" className="text-white hover:bg-[#EC38BC]/20">Game Asset</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="starting-bid">Starting Bid (LSK)</Label>
+                  <Label htmlFor="starting-bid" className={`${poppins.className} text-white`}>Starting Bid (AVAX)</Label>
                   <Input
                     id="starting-bid"
                     name="startingBid"
@@ -202,13 +217,14 @@ export default function CreateAuctionPage() {
                     value={formData.startingBid}
                     onChange={(e) => setFormData({ ...formData, startingBid: Number.parseInt(e.target.value) })}
                     required
+                    className="bg-[#090214]/50 border-[#EC38BC]/20 text-white placeholder:text-white/50 focus:border-[#EC38BC] focus:ring-[#EC38BC]"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <Label htmlFor="duration">Auction Duration</Label>
-                    <span className="text-sm text-muted-foreground">{formData.duration} days</span>
+                    <Label htmlFor="duration" className={`${poppins.className} text-white`}>Auction Duration</Label>
+                    <span className={`${poppins.className} text-sm text-[#EC38BC]`}>{formData.duration} days</span>
                   </div>
                   <Slider
                     id="duration"
@@ -217,20 +233,21 @@ export default function CreateAuctionPage() {
                     step={1}
                     value={[formData.duration]}
                     onValueChange={(value) => setFormData({ ...formData, duration: value[0] })}
+                    className="[&_[role=slider]]:bg-[#EC38BC] [&_[role=track]]:bg-[#EC38BC]/20"
                   />
-                  <div className="flex justify-between text-xs text-muted-foreground">
+                  <div className="flex justify-between text-xs text-[#EC38BC]">
                     <span>1 day</span>
                     <span>30 days</span>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="image">Item Image</Label>
+                  <Label htmlFor="image" className={`${poppins.className} text-white`}>Item Image</Label>
                   <div className="flex flex-col items-center gap-4">
                     <div
                       className={`relative flex h-40 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed ${
-                        imagePreview ? "border-purple-500" : "border-border"
-                      } bg-muted/50 px-6 py-10 text-center transition-colors hover:bg-muted`}
+                        imagePreview ? "border-[#EC38BC]" : "border-[#EC38BC]/20"
+                      } bg-[#090214]/50 px-6 py-10 text-center transition-all duration-300 hover:bg-[#090214]`}
                     >
                       <input
                         id="image"
@@ -250,23 +267,27 @@ export default function CreateAuctionPage() {
                           />
                         </div>
                       ) : (
-                        <>
-                          <div className="flex flex-col items-center gap-2">
-                            <ImageIcon className="h-10 w-10 text-muted-foreground" />
-                            <div className="flex flex-col gap-1">
-                              <span className="text-sm font-medium">Click to upload or drag and drop</span>
-                              <span className="text-xs text-muted-foreground">SVG, PNG, JPG or GIF (max. 10MB)</span>
-                            </div>
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload className="h-8 w-8 text-[#EC38BC]" />
+                          <div className="text-sm text-[#EC38BC]">
+                            Click to upload or drag and drop
                           </div>
-                        </>
+                          <div className="text-xs text-[#EC38BC]/70">
+                            PNG, JPG, GIF up to 10MB
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-blue-600">
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-[#8B5CF6] to-[#EC38BC] hover:from-[#9414d1] hover:to-[#FF3CAC] group"
+                >
                   Create Auction
+                  <Sparkles className="ml-2 h-4 w-4 transition-transform group-hover:scale-110" />
                 </Button>
               </CardFooter>
             </Card>

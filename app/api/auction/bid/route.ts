@@ -1,33 +1,37 @@
 import { NextResponse } from 'next/server'
-import { placeBidOnLisk } from '@/lib/lisk-sdk' // your Lisk blockchain logic
 import { z } from 'zod'
+import { placeBidOnAvalanche } from '@/lib/avalanche-sdk'
 
 // Define the expected body format
 const BidSchema = z.object({
   auctionId: z.string(),
   bidderAddress: z.string(),
-  bidAmount: z.string(), // use string to avoid precision loss in JS numbers
+  bidAmount: z.string()
 })
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json()
-    const { auctionId, bidderAddress, bidAmount } = BidSchema.parse(body)
+    const body = await request.json()
+    const validatedData = BidSchema.parse(body)
 
-    // Optional: Save to DB or validate auction state here
-    // await saveBidToDatabase(auctionId, bidderAddress, bidAmount)
-
-    // Call Lisk blockchain function to place the bid
-    const txResult = await placeBidOnLisk({ auctionId, bidderAddress, bidAmount })
+    const result = await placeBidOnAvalanche({
+      auctionId: validatedData.auctionId,
+      bidderAddress: validatedData.bidderAddress,
+      bidAmount: validatedData.bidAmount
+    })
 
     return NextResponse.json({
       success: true,
-      message: 'Bid placed successfully on Lisk',
-      data: txResult,
+      message: 'Bid placed successfully',
+      data: result
     })
-  } catch (err: any) {
+  } catch (error) {
+    console.error('Error placing bid:', error)
     return NextResponse.json(
-      { success: false, error: err.message ?? 'Unknown error' },
+      {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to place bid'
+      },
       { status: 400 }
     )
   }

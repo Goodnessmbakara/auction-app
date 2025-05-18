@@ -1,217 +1,195 @@
-"use client"
+// app/auction/[id]/page.tsx
+"use client";
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { AuctionCountdown } from "@/components/auction-countdown"
-import { BidForm } from "@/components/bid-form"
-import { BidHistory } from "@/components/bid-history"
-import { ArrowLeft, Share2, Flag, Heart } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import websocketService, { type BidUpdate } from "@/lib/websocket-service"
-import { useAccount } from "wagmi"
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { AuctionCountdown } from "@/components/auction-countdown";
+import { BidForm } from "@/components/bid-form";
+import { BidHistory } from "@/components/bid-history";
+import { ArrowLeft, Share2, Flag, Heart } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import websocketService, { type BidUpdate } from "@/lib/websocket-service";
+import { useAccount } from "wagmi";
+import axios from "axios";
+import type { Metadata } from 'next'
 
-// Mock data for a single auction
-const initialAuction = {
-  id: "1",
-  title: "Cosmic Voyager #42",
-  description:
-    "A stunning digital artwork exploring the vastness of space and the human desire for exploration. This piece represents the journey of humanity beyond our planet, into the unknown reaches of the cosmos.",
-  image: "/placeholder.jpg?height=600&width=600",
-  category: "Digital Art",
+// Define the Auction type
+interface Auction {
+  id: string;
+  title: string;
+  description: string;
+  image: string; // IPFS CID or gateway URL
+  category: string;
   seller: {
-    address: "lsk24cd35u4jdq8szo3pnsqe5dsxwrnazyqqqg5eu",
-    name: "CryptoArtist",
-    verified: true,
-  },
-  currentBid: 1250,
-  minBidIncrement: 50,
-  startingBid: 500,
-  endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-  created: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-  bids: [
-    {
-      bidder: "lsk3j2k3j2k3j2k3j2k3j2k3j2k3j2k3j2k3j2k",
-      amount: 1250,
-      time: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-    },
-    {
-      bidder: "lsk4k5j6h7j8k9l0k9j8h7g6f5d4s3a2s1d2f3g",
-      amount: 1200,
-      time: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-    },
-    {
-      bidder: "lsk1a2s3d4f5g6h7j8k9l0k9j8h7g6f5d4s3a2s",
-      amount: 1000,
-      time: new Date(Date.now() - 12 * 60 * 60 * 1000), // 12 hours ago
-    },
-    {
-      bidder: "lsk9l8k7j6h5g4f3d2s1a2s3d4f5g6h7j8k9l0k",
-      amount: 800,
-      time: new Date(Date.now() - 24 * 60 * 60 * 1000), // 24 hours ago
-    },
-    {
-      bidder: "lsk5g6h7j8k9l0k9j8h7g6f5d4s3a2s1d2f3g4h",
-      amount: 600,
-      time: new Date(Date.now() - 36 * 60 * 60 * 1000), // 36 hours ago
-    },
-    {
-      bidder: "lsk2s3d4f5g6h7j8k9l0k9j8h7g6f5d4s3a2s1d",
-      amount: 500,
-      time: new Date(Date.now() - 48 * 60 * 60 * 1000), // 48 hours ago
-    },
-  ],
+    address: string;
+    name: string;
+    verified: boolean;
+  };
+  currentBid: number;
+  minBidIncrement: number;
+  startingBid: number;
+  endTime: string; // ISO date string
+  created: string; // ISO date string
+  bids: Array<{
+    bidder: string;
+    amount: number;
+    time: string; // ISO date string
+  }>;
 }
 
-export default function AuctionDetailsPage({ params }: { params: { id: string } }) {
-  const { toast } = useToast()
-  const [auction, setAuction] = useState(initialAuction)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isBidding, setIsBidding] = useState(false)
-  const [newBidNotification, setNewBidNotification] = useState<BidUpdate | null>(null)
+// Define the expected props for BidForm
+interface BidFormProps {
+  currentBid: number;
+  minIncrement: number;
+  onPlaceBid: (bidAmount: number) => Promise<void>;
+  isBidding: boolean;
+}
 
-  const { address, isConnected } = useAccount() // Use Wagmi's hook
+type PageParams = {
+  id: string;
+};
 
-  // Fetch auction data
+
+
+export default function AuctionDetailsPage({ params }: { params: PageParams }) {
+  const { toast } = useToast();
+  const [auction, setAuction] = useState<Auction | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBidding, setIsBidding] = useState(false);
+  const [newBidNotification, setNewBidNotification] = useState<BidUpdate | null>(null);
+
+  const { address, isConnected } = useAccount();
+
+  // Fetch auction data from IPFS or backend
   useEffect(() => {
     const fetchAuction = async () => {
       try {
-        setIsLoading(true)
-        // In a real app, you would fetch the auction data from the blockchain
-        // const auctionData = await getAuction(params.id)
-        // setAuction(auctionData)
+        setIsLoading(true);
+        const response = await axios.get(`/api/auction/${params.id}`);
+        const auctionData: Auction = response.data;
 
-        // For demo purposes, we'll use the mock data
-        setTimeout(() => {
-          setIsLoading(false)
-        }, 1000)
+        // If image is an IPFS CID, convert to gateway URL
+        const ipfsGateway = "https://gateway.pinata.cloud/ipfs/";
+        auctionData.image = auctionData.image.startsWith("Qm")
+          ? `${ipfsGateway}${auctionData.image}`
+          : auctionData.image;
+
+        setAuction(auctionData);
       } catch (error) {
-        console.error("Failed to fetch auction:", error)
+        console.error("Failed to fetch auction:", error);
         toast({
           title: "Error",
           description: "Failed to fetch auction details. Please try again.",
           variant: "destructive",
-        })
-        setIsLoading(false)
+        });
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchAuction()
-  }, [params.id, toast])
+    fetchAuction();
+  }, [params.id, toast]);
 
   // Set up WebSocket connection for real-time updates
-  useEffect(() => {
-    const connectWebSocket = async () => {
-      try { // TODO: Handle WebSocket connection state and errors more robustly
-        await websocketService.connect()
+  // In the WebSocket useEffect:
+useEffect(() => {
+  let isMounted = true;
+  let reconnectInterval: NodeJS.Timeout;
 
-        // Subscribe to auction updates
-        websocketService.subscribeToAuction(params.id)
-
-        // Listen for bid updates
-        websocketService.on("bid", (data: BidUpdate) => {
-          if (data.auctionId === params.id) {
-            // Update auction with new bid
-            setAuction((prev) => ({
-              ...prev,
-              currentBid: data.bidAmount,
-              bids: [
-                {
-                  bidder: data.bidder,
-                  amount: data.bidAmount,
-                  time: new Date(data.timestamp),
-                },
-                ...prev.bids,
-              ],
-            }))
-
-            // Show notification if the bid is not from the current user
-            if (address !== data.bidder) { // Use address from Wagmi
-              setNewBidNotification(data)
-
-              // Clear notification after 5 seconds
-              setTimeout(() => {
-                setNewBidNotification(null)
-              }, 5000)
-            }
-          }
-        })
-
-        return () => {
-          // Unsubscribe and disconnect when component unmounts
-          websocketService.unsubscribeFromAuction(params.id)
-          websocketService.disconnect()
-        }
-      } catch (error) {
-        console.error("WebSocket connection error:", error)
+  const connectWebSocket = async () => {
+    try {
+      if (!websocketService.isConnected()) {
+        await websocketService.connect();
       }
-    }
+      
+      websocketService.subscribeToAuction(params.id);
 
-    connectWebSocket() // TODO: Consider reconnect logic if connection drops
-  }, [params.id, address]) // Depend on address so WebSocket logic updates if wallet changes
+      // Add ping-pong for connection health
+      const keepAlive = setInterval(() => {
+        websocketService.ping();
+      }, 30000);
+
+      websocketService.on("bid", (data: BidUpdate) => {
+        // ... existing handler
+      });
+
+      return () => {
+        clearInterval(keepAlive);
+      };
+    } catch (error) {
+      console.error("Connection error:", error);
+      reconnectInterval = setTimeout(connectWebSocket, 5000);
+    }
+  };
+
+  connectWebSocket();
+
+  return () => {
+    isMounted = false;
+    clearTimeout(reconnectInterval);
+    websocketService.unsubscribeFromAuction(params.id);
+    if (websocketService.isConnected()) {
+      websocketService.disconnect();
+    }
+  };
+}, [params.id, address, toast]);
 
   // Handle bid submission
   const handlePlaceBid = async (bidAmount: number) => {
-    if (!isConnected || !address) { // Use isConnected and address from Wagmi
+    if (!isConnected || !address) {
       toast({
         title: "Wallet Required",
         description: "Please connect your wallet to place a bid.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     try {
-      setIsBidding(true)
+      setIsBidding(true);
 
-      // In a real app, you would place the bid on the blockchain
-      // await placeBid('your_passphrase', params.id, bidAmount)
+      await axios.post(`/api/auction/${params.id}/bid`, {
+        bidder: address,
+        bidAmount,
+      });
 
-      // For demo purposes, we'll simulate a successful bid
-      setTimeout(() => {
-        // Simulate WebSocket update
-        const bidUpdate: BidUpdate = {
-          auctionId: params.id,
-          bidder: address,
-          bidAmount: bidAmount, // This should be the final bid amount after the user's input
-          timestamp: Date.now(),
-        }
+      setAuction((prev) =>
+        prev
+          ? {
+              ...prev,
+              currentBid: bidAmount,
+              bids: [
+                {
+                  bidder: address,
+                  amount: bidAmount,
+                  time: new Date().toISOString(),
+                },
+                ...prev.bids,
+              ],
+            }
+          : prev
+      );
 
-        // Update auction with new bid
-        setAuction((prev) => ({
-          ...prev,
-          currentBid: bidAmount,
-          bids: [
-            {
-              bidder: address, // Use address from Wagmi
-              amount: bidAmount,
-              time: new Date(),
-            },
-            ...prev.bids,
-          ],
-        }))
-
-        toast({
-          title: "Bid Placed",
-          description: `Your bid of ${bidAmount} LSK has been placed successfully.`,
-        })
-
-        setIsBidding(false)
-      }, 2000)
+      toast({
+        title: "Bid Placed",
+        description: `Your bid of ${bidAmount} AVX has been placed successfully.`,
+      });
     } catch (error) {
-      console.error("Failed to place bid:", error)
+      console.error("Failed to place bid:", error);
       toast({
         title: "Bid Failed",
         description: "Failed to place your bid. Please try again.",
         variant: "destructive",
-      })
-      setIsBidding(false)
+      });
+    } finally {
+      setIsBidding(false);
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -221,7 +199,20 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
           <p className="mt-4 text-muted-foreground">Loading auction details...</p>
         </div>
       </div>
-    )
+    );
+  }
+
+  if (!auction) {
+    return (
+      <div className="container py-8">
+        <div className="flex flex-col items-center justify-center py-12">
+          <p className="text-muted-foreground">Auction not found.</p>
+          <Link href="/explore" className="mt-4 text-primary hover:underline">
+            Back to auctions
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -234,7 +225,6 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
         Back to auctions
       </Link>
 
-      {/* New Bid Notification */}
       {newBidNotification && (
         <div className="fixed bottom-4 right-4 z-50 max-w-md animate-in fade-in slide-in-from-bottom-5">
           <Card className="border-purple-500 bg-purple-950/20">
@@ -248,7 +238,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
                   <p className="text-sm text-muted-foreground">
                     {newBidNotification.bidder.substring(0, 6)}...
                     {newBidNotification.bidder.substring(newBidNotification.bidder.length - 4)} placed a bid of{" "}
-                    <span className="font-semibold">{newBidNotification.bidAmount} LSK</span>
+                    <span className="font-semibold">{newBidNotification.bidAmount} AVX</span>
                   </p>
                 </div>
               </div>
@@ -258,14 +248,21 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
       )}
 
       <div className="grid gap-8 lg:grid-cols-2">
-        {/* Left Column - Image */}
         <div className="flex flex-col gap-4">
           <div className="relative overflow-hidden rounded-lg border border-border/50 bg-background">
             <div className="absolute right-2 top-2 z-10 flex gap-2">
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full bg-background/80 backdrop-blur">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full bg-background/80 backdrop-blur"
+              >
                 <Heart className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full bg-background/80 backdrop-blur">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full bg-background/80 backdrop-blur"
+              >
                 <Share2 className="h-4 w-4" />
               </Button>
             </div>
@@ -275,11 +272,12 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
               width={600}
               height={600}
               className="object-cover w-full h-full"
+              placeholder="blur"
+              blurDataURL="/placeholder.jpg"
             />
           </div>
         </div>
 
-        {/* Right Column - Auction Details */}
         <div className="flex flex-col gap-4">
           <Card className="flex flex-col gap-4">
             <CardHeader>
@@ -292,7 +290,7 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <p className="font-semibold">{auction.currentBid} LSK</p>
+                  <p className="font-semibold">{auction.currentBid} AVX</p>
                   <span className="text-sm text-muted-foreground">Current Bid</span>
                 </div>
               </div>
@@ -308,17 +306,21 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
               </TabsList>
 
               <TabsContent value="auction">
-                <AuctionCountdown endTime={auction.endTime} />
+                <AuctionCountdown endTime={new Date(auction.endTime)} />
                 <BidForm
                   currentBid={auction.currentBid}
-                  minBidIncrement={auction.minBidIncrement}
+                  minIncrement={auction.minBidIncrement}
                   onPlaceBid={handlePlaceBid}
                   isBidding={isBidding}
-                  // BidForm component should handle its own connection check using useAccount internally
                 />
               </TabsContent>
               <TabsContent value="bids">
-                <BidHistory bids={auction.bids} />
+                <BidHistory
+                  bids={auction.bids.map((bid) => ({
+                    ...bid,
+                    time: new Date(bid.time),
+                  }))}
+                />
               </TabsContent>
               <TabsContent value="details">
                 <p>
@@ -333,5 +335,5 @@ export default function AuctionDetailsPage({ params }: { params: { id: string } 
         </div>
       </div>
     </div>
-  )
+  );
 }

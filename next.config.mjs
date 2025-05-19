@@ -1,7 +1,5 @@
-// next.config.mjs
 export default {
   webpack(config, { isServer }) {
-    // Fix for native module errors (e.g., .node files)
     if (!isServer) {
       config.module.rules.push({
         test: /\.node$/,
@@ -13,7 +11,16 @@ export default {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb'
-    }
-  }
+      bodySizeLimit: '10mb',
+    },
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'gateway.pinata.cloud',
+        pathname: '/ipfs/**',
+      },
+    ],
+  },
 };

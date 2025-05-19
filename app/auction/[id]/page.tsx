@@ -122,8 +122,10 @@ export default function AuctionDetailsPage({ params }: { params: Promise<{ id: s
         setNewBidNotification(data);
       }
     };
+  
     const connectWebSocket = async () => {
       try {
+        // Use the public method instead of accessing private socket property
         if (!websocketService.isConnected()) {
           await websocketService.connect();
         }
@@ -132,25 +134,37 @@ export default function AuctionDetailsPage({ params }: { params: Promise<{ id: s
         websocketService.on("bid", handleBid);
   
         keepAlive = setInterval(() => {
-          websocketService.ping();
+          if (websocketService.isConnected()) {
+            websocketService.send("ping", { timestamp: Date.now() });
+          }
         }, 30000);
       } catch (error) {
         console.error("WebSocket connection error:", error);
+        toast({
+          title: "Connection Error",
+          description: "Failed to connect to real-time updates. Retrying...",
+          variant: "destructive",
+        });
         reconnectInterval = setTimeout(connectWebSocket, 5000);
       }
     };
-
-  connectWebSocket();
-
-  return () => {
-    isMounted = false;
-    clearTimeout(reconnectInterval);
-    websocketService.unsubscribeFromAuction(id);
-    if (websocketService.isConnected()) {
-      websocketService.disconnect();
+  
+    // Only connect if we have an address (user is connected)
+    if (address) {
+      connectWebSocket();
     }
-  };
-}, [id, address, toast]);
+  
+    return () => {
+      isMounted = false;
+      clearTimeout(reconnectInterval);
+      clearInterval(keepAlive);
+      websocketService.unsubscribeFromAuction(id);
+      websocketService.off("bid", handleBid);
+      if (websocketService.isConnected()) {
+        websocketService.disconnect();
+      }
+    };
+  }, [id, address, toast]);
 
   // Handle bid submission
   const handlePlaceBid = async (bidAmount: number) => {
@@ -324,7 +338,7 @@ export default function AuctionDetailsPage({ params }: { params: Promise<{ id: s
                   currentBid={auction.currentBid}
                   minIncrement={auction.minBidIncrement}
                   onPlaceBid={handlePlaceBid}
-                  isBidding={isBidding}
+                  isLoading={isBidding}
                 />
               </TabsContent>
               <TabsContent value="bids">

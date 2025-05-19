@@ -193,6 +193,14 @@ class WebSocketService {
     }
   }
 
+  isConnected(): boolean {
+    return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
+  }
+
+  getReadyState(): number | null {
+    return this.socket?.readyState ?? null;
+  }
+
   // Register connect handler
   onConnect(handler: ConnectionHandler): void {
     this.onConnectHandlers.push(handler);

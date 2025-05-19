@@ -7,12 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConnectWalletButton } from "@/components/connect-wallet-button"
 
-declare global {
-  interface Window {
-    ethereum: any
-  }
-}
-
 interface BidFormProps {
   currentBid: number
   minIncrement: number

@@ -1,7 +1,7 @@
 // app/auction/[id]/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect , use} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -50,17 +50,15 @@ interface BidFormProps {
   isBidding: boolean;
 }
 
-type PageParams = {
-  id: string;
-};
 
 
-
-export default function AuctionDetailsPage({ params }: { params: PageParams }) {
+export default function AuctionDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { toast } = useToast();
   const [auction, setAuction] = useState<Auction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBidding, setIsBidding] = useState(false);
+  const unwrappedParams = use(params);
+  const { id } = unwrappedParams;
   const [newBidNotification, setNewBidNotification] = useState<BidUpdate | null>(null);
 
   const { address, isConnected } = useAccount();
@@ -70,7 +68,7 @@ export default function AuctionDetailsPage({ params }: { params: PageParams }) {
     const fetchAuction = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get(`/api/auction/${params.id}`);
+        const response = await axios.get(`/api/auction/${id}`);
         const auctionData: Auction = response.data;
 
         // If image is an IPFS CID, convert to gateway URL
@@ -93,51 +91,66 @@ export default function AuctionDetailsPage({ params }: { params: PageParams }) {
     };
 
     fetchAuction();
-  }, [params.id, toast]);
+  }, [id, toast]);
 
   // Set up WebSocket connection for real-time updates
   // In the WebSocket useEffect:
-useEffect(() => {
-  let isMounted = true;
-  let reconnectInterval: NodeJS.Timeout;
-
-  const connectWebSocket = async () => {
-    try {
-      if (!websocketService.isConnected()) {
-        await websocketService.connect();
+  useEffect(() => {
+    let isMounted = true;
+    let reconnectInterval: NodeJS.Timeout;
+    let keepAlive: NodeJS.Timeout;
+  
+    const handleBid = (data: BidUpdate) => {
+      if (data.auctionId === id) {
+        setAuction((prev) =>
+          prev
+            ? {
+                ...prev,
+                currentBid: data.bidAmount,
+                bids: [
+                  {
+                    bidder: data.bidder,
+                    amount: data.bidAmount,
+                    time: new Date(data.timestamp).toISOString(),
+                  },
+                  ...prev.bids,
+                ],
+              }
+            : prev
+        );
+  
+        setNewBidNotification(data);
       }
-      
-      websocketService.subscribeToAuction(params.id);
-
-      // Add ping-pong for connection health
-      const keepAlive = setInterval(() => {
-        websocketService.ping();
-      }, 30000);
-
-      websocketService.on("bid", (data: BidUpdate) => {
-        // ... existing handler
-      });
-
-      return () => {
-        clearInterval(keepAlive);
-      };
-    } catch (error) {
-      console.error("Connection error:", error);
-      reconnectInterval = setTimeout(connectWebSocket, 5000);
-    }
-  };
+    };
+    const connectWebSocket = async () => {
+      try {
+        if (!websocketService.isConnected()) {
+          await websocketService.connect();
+        }
+  
+        websocketService.subscribeToAuction(id);
+        websocketService.on("bid", handleBid);
+  
+        keepAlive = setInterval(() => {
+          websocketService.ping();
+        }, 30000);
+      } catch (error) {
+        console.error("WebSocket connection error:", error);
+        reconnectInterval = setTimeout(connectWebSocket, 5000);
+      }
+    };
 
   connectWebSocket();
 
   return () => {
     isMounted = false;
     clearTimeout(reconnectInterval);
-    websocketService.unsubscribeFromAuction(params.id);
+    websocketService.unsubscribeFromAuction(id);
     if (websocketService.isConnected()) {
       websocketService.disconnect();
     }
   };
-}, [params.id, address, toast]);
+}, [id, address, toast]);
 
   // Handle bid submission
   const handlePlaceBid = async (bidAmount: number) => {
@@ -153,7 +166,7 @@ useEffect(() => {
     try {
       setIsBidding(true);
 
-      await axios.post(`/api/auction/${params.id}/bid`, {
+      await axios.post(`/api/auction/${id}/bid`, {
         bidder: address,
         bidAmount,
       });

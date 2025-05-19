@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import formidable from "formidable";
 import fs from "fs";
-import { create } from "ipfs-http-client";
-import { Buffer } from "buffer";
+import pinataSDK from '@pinata/sdk';
 
-// Initialize IPFS client
-const ipfs = create({
-  url: "http://localhost:5001/api/v0",
-  headers: {
-    authorization: "Basic " + Buffer.from("ipfs:ipfs").toString("base64"),
-  },
-});
+// Initialize Pinata client
+const pinata = new pinataSDK(
+  process.env.PINATA_API_KEY!,
+  process.env.PINATA_SECRET_API_KEY!
+);
 
-export const config = { api: { bodyParser: false } };
+export const config = { 
+  api: { 
+    bodyParser: false 
+  } 
+};
 
 async function parseForm(req: NextRequest): Promise<{ fields: any; files: any }> {
   console.log("[CreateAuctionAPI] Starting form parsing");
@@ -48,8 +49,8 @@ async function parseForm(req: NextRequest): Promise<{ fields: any; files: any }>
   });
 }
 
-async function uploadToIPFS(file: formidable.File): Promise<string> {
-  console.log("[CreateAuctionAPI] Starting IPFS upload for file:", {
+async function uploadToPinata(file: formidable.File): Promise<string> {
+  console.log("[CreateAuctionAPI] Starting Pinata upload for file:", {
     name: file.originalFilename,
     size: file.size,
     type: file.mimetype,
@@ -69,13 +70,17 @@ async function uploadToIPFS(file: formidable.File): Promise<string> {
       permissions: fileStats.mode,
     });
 
-    // Read file as buffer
-    const fileBuffer = fs.readFileSync(file.filepath);
-    console.log("[CreateAuctionAPI] File read as buffer, size:", fileBuffer.length);
+    // Create readable stream from file
+    const fileStream = fs.createReadStream(file.filepath);
+    const options = {
+      pinataMetadata: {
+        name: file.originalFilename || 'auction-image',
+      },
+    };
 
-    console.log("[CreateAuctionAPI] Starting IPFS add operation");
-    const result = await ipfs.add(fileBuffer);
-    console.log("[CreateAuctionAPI] IPFS upload successful. CID:", result.cid.toString());
+    console.log("[CreateAuctionAPI] Starting Pinata upload");
+    const { IpfsHash } = await pinata.pinFileToIPFS(fileStream, options);
+    console.log("[CreateAuctionAPI] Pinata upload successful. CID:", IpfsHash);
 
     // Clean up the temporary file
     try {
@@ -85,9 +90,9 @@ async function uploadToIPFS(file: formidable.File): Promise<string> {
       console.warn("[CreateAuctionAPI] Failed to clean up temporary file:", cleanupError);
     }
 
-    return result.cid.toString();
+    return IpfsHash;
   } catch (error) {
-    console.error("[CreateAuctionAPI] IPFS upload failed:", error);
+    console.error("[CreateAuctionAPI] Pinata upload failed:", error);
     // Clean up the temporary file even if upload fails
     try {
       if (fs.existsSync(file.filepath)) {
@@ -116,11 +121,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("[CreateAuctionAPI] Uploading image to IPFS");
-    const imageCID = await uploadToIPFS(files.image[0]);
+    console.log("[CreateAuctionAPI] Uploading image to Pinata");
+    const imageCID = await uploadToPinata(files.image[0]);
+
+    // Create and pin metadata
+    const metadata = {
+      name: fields.title?.[0] || 'Untitled Auction',
+      description: fields.description?.[0] || '',
+      image: `ipfs://${imageCID}`,
+      attributes: {
+        category: fields.category?.[0],
+        startingBid: fields.startingBid?.[0],
+        duration: fields.duration?.[0],
+        sellerAddress: fields.sellerAddress?.[0],
+      }
+    };
+
+    const { IpfsHash: metadataCID } = await pinata.pinJSONToIPFS(metadata);
+    console.log("[CreateAuctionAPI] Metadata pinned to IPFS:", metadataCID);
 
     console.log("[CreateAuctionAPI] Auction creation successful", {
       imageCID,
+      metadataCID,
       sellerAddress: fields.sellerAddress,
       title: fields.title,
       category: fields.category,
@@ -131,13 +153,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       imageCID,
+      metadataCID,
       metadata: {
-        title: fields.title,
-        description: fields.description,
-        category: fields.category,
-        startingBid: fields.startingBid,
-        duration: fields.duration,
-        sellerAddress: fields.sellerAddress,
+        title: fields.title?.[0],
+        description: fields.description?.[0],
+        category: fields.category?.[0],
+        startingBid: fields.startingBid?.[0],
+        duration: fields.duration?.[0],
+        sellerAddress: fields.sellerAddress?.[0],
       },
     });
   } catch (err) {

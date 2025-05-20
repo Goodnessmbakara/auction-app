@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 
 interface AuctionCountdownProps {
-  endTime: Date
+  endTime: Date | string // Accept both Date and string
 }
 
 export function AuctionCountdown({ endTime }: AuctionCountdownProps) {
@@ -22,8 +22,17 @@ export function AuctionCountdown({ endTime }: AuctionCountdownProps) {
   const [isEnded, setIsEnded] = useState(false)
 
   useEffect(() => {
+    // Convert to Date if it's a string
+    const endDate = typeof endTime === 'string' ? new Date(endTime) : endTime
+    
+    // Validate the date
+    if (isNaN(endDate.getTime())) {
+      console.error("Invalid endTime provided:", endTime)
+      return
+    }
+
     const calculateTimeLeft = () => {
-      const difference = endTime.getTime() - new Date().getTime()
+      const difference = endDate.getTime() - new Date().getTime()
 
       if (difference <= 0) {
         setIsEnded(true)
@@ -67,7 +76,8 @@ export function AuctionCountdown({ endTime }: AuctionCountdownProps) {
 
   return (
     <span className="text-sm font-medium">
-      {String(timeLeft.hours).padStart(2, "0")}:{String(timeLeft.minutes).padStart(2, "0")}:
+      {String(timeLeft.hours).padStart(2, "0")}:
+      {String(timeLeft.minutes).padStart(2, "0")}:
       {String(timeLeft.seconds).padStart(2, "0")}
     </span>
   )

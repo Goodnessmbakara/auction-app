@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import axios from "axios";
 import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
@@ -15,114 +16,65 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { AuctionCountdown } from "@/components/auction-countdown"
 import { Search, SlidersHorizontal, X } from "lucide-react"
 
-// Mock categories
-const categories = [
-  { id: "digital-art", name: "Digital Art" },
-  { id: "collectible", name: "Collectible" },
-  { id: "virtual-land", name: "Virtual Land" },
-  { id: "avatar", name: "Avatar" },
-  { id: "game-asset", name: "Game Asset" },
-]
 
-// Mock auctions data
-const mockAuctions = [
-  {
-    id: "1",
-    title: "Cosmic Voyager #42",
-    image: "/placeholder.jpg?height=400&width=400",
-    currentBid: 1250,
-    endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-    category: "Digital Art",
-  },
-  {
-    id: "2",
-    title: "Blockchain Pioneer",
-    image: "/placeholder.jpg?height=400&width=400",
-    currentBid: 890,
-    endTime: new Date(Date.now() + 8 * 60 * 60 * 1000),
-    category: "Collectible",
-  },
-  {
-    id: "3",
-    title: "Neon Genesis",
-    image: "/placeholder.jpg?height=400&width=400",
-    currentBid: 3400,
-    endTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
-    category: "Virtual Land",
-  },
-  {
-    id: "4",
-    title: "Crypto Punk #1337",
-    image: "/placeholder.jpg?height=400&width=400",
-    currentBid: 5600,
-    endTime: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-    category: "Avatar",
-  },
-  {
-    id: "5",
-    title: "Digital Dreamscape",
-    image: "/placeholder.jpg?height=400&width=400",
-    currentBid: 2200,
-    endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-    category: "Digital Art",
-  },
-  {
-    id: "6",
-    title: "Metaverse Parcel #789",
-    image: "/placeholder.jpg?height=400&width=400",
-    currentBid: 4500,
-    endTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-    category: "Virtual Land",
-  },
-  {
-    id: "7",
-    title: "Pixel Warrior",
-    image: "/placeholder.jpg?height=400&width=400",
-    currentBid: 750,
-    endTime: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-    category: "Game Asset",
-  },
-  {
-    id: "8",
-    title: "Crypto Kitty #42",
-    image: "/placeholder.jpg?height=400&width=400",
-    currentBid: 1800,
-    endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-    category: "Collectible",
-  },
-]
 
 export default function ExplorePage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [priceRange, setPriceRange] = useState<number[]>([0, 10000])
-  const [sortBy, setSortBy] = useState("ending-soon")
-  const [showEnded, setShowEnded] = useState(false)
-  const [filteredAuctions, setFilteredAuctions] = useState(mockAuctions)
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [auctions, setAuctions] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState<number[]>([0, 10000]);
+  const [sortBy, setSortBy] = useState("ending-soon");
+  const [showEnded, setShowEnded] = useState(false);
+  const [filteredAuctions, setFilteredAuctions] = useState([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+   // Fetch auctions on mount
+   useEffect(() => {
+    async function fetchAuctions() {
+      const res = await axios.get("/api/auction/active-auctions");
+      setAuctions(res.data);
+
+      // Extract unique categories from auctions
+      const uniqueCategories = Array.from(
+        new Set(res.data.map((a: any) => a.category))
+      ).map((cat) => ({
+        id: cat.toLowerCase().replace(/\s+/g, "-"),
+        name: cat,
+      }));
+      setCategories(uniqueCategories);
+    }
+    fetchAuctions();
+  }, []);
 
   // Apply filters
   useEffect(() => {
-    let filtered = [...mockAuctions]
+    let filtered = [...auctions];
 
-    // Search filter
     if (searchQuery) {
-      filtered = filtered.filter((auction) => auction.title.toLowerCase().includes(searchQuery.toLowerCase()))
+      filtered = filtered.filter((auction) =>
+        auction.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     }
 
-    // Category filter
     if (selectedCategories.length > 0) {
       filtered = filtered.filter((auction) =>
-        selectedCategories.includes(auction.category.toLowerCase().replace(" ", "-")),
-      )
+        selectedCategories.includes(
+          auction.category.toLowerCase().replace(/\s+/g, "-")
+        )
+      );
     }
 
-    // Price range filter
-    filtered = filtered.filter((auction) => auction.currentBid >= priceRange[0] && auction.currentBid <= priceRange[1])
+    filtered = filtered.filter(
+      (auction) =>
+        auction.currentBid >= priceRange[0] &&
+        auction.currentBid <= priceRange[1]
+    );
 
-    // Show/hide ended auctions
     if (!showEnded) {
-      filtered = filtered.filter((auction) => auction.endTime.getTime() > Date.now())
+      filtered = filtered.filter(
+        (auction) => new Date(auction.endTime).getTime() > Date.now()
+      );
     }
 
     // Sort

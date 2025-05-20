@@ -74,10 +74,10 @@ async function uploadToPinata(file: File, sellerAddress: string): Promise<string
   const metadata: PinataMetadata = {
     name: file.name || 'auction-image',
     keyvalues: {
-      type: { value: 'auction', op: 'eq' },
-      seller: { value: sellerAddress, op: 'eq' },
-      uploadedAt: { value: new Date().toISOString(), op: 'eq' },
-      status: { value: 'active', op: 'eq' }
+      type: 'auction',
+      seller: sellerAddress,
+      uploadedAt: new Date().toISOString(),
+      status: 'active'
     }
   };
 
@@ -142,13 +142,13 @@ export async function POST(request: Request) {
       pinataMetadata: {
         name: `${fields.title}-metadata`,
         keyvalues: {
-          type: { value: 'auction-metadata', op: 'eq' },
-          auctionId: { value: imageCID, op: 'eq' },
-          seller: { value: fields.sellerAddress, op: 'eq' },
-          category: { value: fields.category, op: 'eq' },
-          status: { value: 'active', op: 'eq' },
-          startTime: { value: new Date().toISOString(), op: 'eq' },
-          endTime: { value: endTime.toISOString(), op: 'eq' }
+          type: 'auction-metadata',
+          auctionId: imageCID,
+          seller: fields.sellerAddress,
+          category: fields.category,
+          status: 'active',
+          startTime: new Date().toISOString(),
+          endTime: endTime.toISOString()
         }
       },
       pinataOptions: {

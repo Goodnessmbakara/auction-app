@@ -80,7 +80,7 @@ export default function ExplorePage() {
     // Sort
     switch (sortBy) {
       case "ending-soon":
-        filtered.sort((a, b) => a.endTime.getTime() - b.endTime.getTime())
+        filtered.sort((a, b) => new Date(a.endTime).getTime() - new Date(b.endTime).getTime())
         break
       case "price-high-low":
         filtered.sort((a, b) => b.currentBid - a.currentBid)

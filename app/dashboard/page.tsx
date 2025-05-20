@@ -246,7 +246,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-4">
                     <div className="relative h-16 w-16 overflow-hidden rounded-lg">
                       <img
-                        src={auction.image}
+                        src={auction.image.startsWith('ipfs://') ? auction.image.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : auction.image}
                         alt={auction.title}
                         className="h-full w-full object-cover"
                       />
@@ -266,7 +266,7 @@ export default function DashboardPage() {
                       <div className={`${poppins.className} text-sm text-[#EC38BC]`}>
                         Ends in
                       </div>
-                      <AuctionCountdown endTime={auction.endTime} />
+                      <AuctionCountdown endTime={new Date(auction.endTime)} />
                     </div>
                   </div>
                 </CardContent>
@@ -334,7 +334,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-4">
                     <div className="relative h-16 w-16 overflow-hidden rounded-lg">
                       <img
-                        src={auction.image}
+                        src={auction.image.startsWith('ipfs://') ? auction.image.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : auction.image}
                         alt={auction.title}
                         className="h-full w-full object-cover"
                       />

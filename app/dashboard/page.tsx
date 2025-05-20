@@ -21,6 +21,7 @@ import {
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { AuctionCountdown } from "@/components/auction-countdown"
+import { ethers } from "ethers";
 
 const raleway = Raleway({ subsets: ["latin"] })
 const poppins = Poppins({ 
@@ -71,7 +72,12 @@ export default function DashboardPage() {
         setBids(bidsRes.data);
         setWonAuctions(winsRes.data);
         setTransactions(txsRes.data);
-        setBalance(5.8); // Mock balance - replace with actual fetch
+        // Fetch real wallet balance
+        if (typeof window !== 'undefined' && window.ethereum) {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const bal = await provider.getBalance(address);
+          setBalance(Number(ethers.formatEther(bal)));
+        }
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
         toast({

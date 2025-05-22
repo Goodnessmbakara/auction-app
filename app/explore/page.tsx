@@ -14,7 +14,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { AuctionCountdown } from "@/components/auction-countdown"
-import { Search, SlidersHorizontal, X } from "lucide-react"
+import { Search, SlidersHorizontal, X, Loader2 } from "lucide-react"
+import { useDebounce } from '../../hooks/use-debounce';
 
 
 
@@ -22,38 +23,53 @@ export default function ExplorePage() {
   const [auctions, setAuctions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<number[]>([0, 10000]);
   const [sortBy, setSortBy] = useState("ending-soon");
   const [showEnded, setShowEnded] = useState(false);
   const [filteredAuctions, setFilteredAuctions] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
    // Fetch auctions on mount
    useEffect(() => {
     async function fetchAuctions() {
-      const res = await axios.get("/api/auction/active-auctions");
-      setAuctions(res.data);
+      try {
+        setIsSearching(true);
+        const res = await axios.get("/api/auction/active-auctions");
+        setAuctions(res.data);
 
-      // Extract unique categories from auctions
-      const uniqueCategories = Array.from(
-        new Set(res.data.map((a: any) => a.category))
-      ).map((cat) => ({
-        id: cat.toLowerCase().replace(/\s+/g, "-"),
-        name: cat,
-      }));
-      setCategories(uniqueCategories);
+        // Extract unique categories from auctions using array methods
+        const uniqueCategories = res.data
+          .map((a: any) => a.category)
+          .filter((category: string, index: number, self: string[]) => 
+            self.indexOf(category) === index
+          )
+          .map((cat: string) => ({
+            id: cat.toLowerCase().replace(/\s+/g, "-"),
+            name: cat,
+          }));
+        setCategories(uniqueCategories);
+      } catch (error) {
+        console.error('Error fetching auctions:', error);
+      } finally {
+        setIsSearching(false);
+      }
     }
     fetchAuctions();
   }, []);
 
-  // Apply filters
+  // Apply filters with debounced search
   useEffect(() => {
     let filtered = [...auctions];
 
-    if (searchQuery) {
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
       filtered = filtered.filter((auction) =>
-        auction.title.toLowerCase().includes(searchQuery.toLowerCase())
+        auction.title.toLowerCase().includes(query) ||
+        auction.description.toLowerCase().includes(query) ||
+        auction.category.toLowerCase().includes(query)
       );
     }
 
@@ -89,13 +105,12 @@ export default function ExplorePage() {
         filtered.sort((a, b) => a.currentBid - b.currentBid)
         break
       case "recently-added":
-        // In a real app, you would sort by creation date
-        filtered.sort((a, b) => Number.parseInt(b.id) - Number.parseInt(a.id))
+        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         break
     }
 
     setFilteredAuctions(filtered)
-  }, [searchQuery, selectedCategories, priceRange, sortBy, showEnded])
+  }, [debouncedSearchQuery, selectedCategories, priceRange, sortBy, showEnded, auctions])
 
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories((prev) =>
@@ -125,6 +140,11 @@ export default function ExplorePage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
+          {isSearching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Select value={sortBy} onValueChange={setSortBy}>
@@ -179,8 +199,8 @@ export default function ExplorePage() {
                 <AccordionContent>
                   <div className="space-y-4">
                     <div className="flex justify-between">
-                      <span>{priceRange[0]} LSK</span>
-                      <span>{priceRange[1]} LSK</span>
+                      <span>{priceRange[0]} AVX</span>
+                      <span>{priceRange[1]} AVX</span>
                     </div>
                     <Slider min={0} max={10000} step={100} value={priceRange} onValueChange={setPriceRange} />
                   </div>
@@ -240,8 +260,8 @@ export default function ExplorePage() {
                     <AccordionContent>
                       <div className="space-y-4">
                         <div className="flex justify-between">
-                          <span>{priceRange[0]} LSK</span>
-                          <span>{priceRange[1]} LSK</span>
+                          <span>{priceRange[0]} AVX</span>
+                          <span>{priceRange[1]} AVX</span>
                         </div>
                         <Slider min={0} max={10000} step={100} value={priceRange} onValueChange={setPriceRange} />
                       </div>
@@ -281,7 +301,9 @@ export default function ExplorePage() {
           {filteredAuctions.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
               <p className="mb-4 text-lg font-semibold">No auctions found</p>
-              <p className="mb-6 text-muted-foreground">Try adjusting your filters or search query.</p>
+              <p className="mb-6 text-muted-foreground">
+                {searchQuery ? "Try adjusting your search query or filters." : "Try adjusting your filters."}
+              </p>
               <Button onClick={clearFilters}>Clear Filters</Button>
             </div>
           ) : (
@@ -292,7 +314,7 @@ export default function ExplorePage() {
                     <div className="relative aspect-square overflow-hidden">
                       <Badge className="absolute left-2 top-2 z-10">{auction.category}</Badge>
                       <Image
-                        src={auction.image || "/placeholder.jpg"}
+                        src={auction.imageUrl || "/placeholder.jpg"}
                         alt={auction.title}
                         width={400}
                         height={400}
@@ -304,7 +326,7 @@ export default function ExplorePage() {
                       <div className="mt-2 flex items-baseline justify-between">
                         <div>
                           <p className="text-xs text-muted-foreground">Current Bid</p>
-                          <p className="font-semibold">{auction.currentBid} LSK</p>
+                          <p className="font-semibold">{auction.currentBid} AVAX</p>
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-muted-foreground">Ends in</p>

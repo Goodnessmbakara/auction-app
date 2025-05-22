@@ -1,4 +1,4 @@
-// app/api/auction/route.ts
+// app/api/auction/active-auction/route.ts
 import { NextResponse } from "next/server";
 import pinataSDK from '@pinata/sdk';
 
@@ -55,6 +55,27 @@ interface AuctionResponse {
   }>;
 }
 
+async function fetchWithRetry(url: string, retries = 3, timeout = 15000): Promise<Response> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (response.ok) return response;
+      console.warn(`Fetch attempt ${attempt} failed for ${url}: ${response.statusText}`);
+    } catch (error) {
+      console.error(`Fetch attempt ${attempt} error for ${url}:`, error);
+      if (attempt === retries) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+    }
+  }
+  throw new Error(`Failed to fetch ${url} after ${retries} attempts`);
+}
+
 export async function GET() {
   try {
     // Fetch pinned items with auction type metadata
@@ -62,60 +83,80 @@ export async function GET() {
       status: 'pinned',
       metadata: {
         keyvalues: {
-            type: { value: "auction-metadata", op: "eq" }
-        }
-      }
+          type: {
+            value: 'auction',
+            op: 'eq',
+          },
+        },
+      },
     });
+    console.log("FETCHING HERE", rows);
 
-    if (!rows || rows.length === 0) {
-      return NextResponse.json([], { status: 200 });
-    }
+    // Get current time once for all comparisons
+    const currentTime = new Date();
 
-    // Process auctions in parallel with error handling for individual items
+    // Process and filter auctions
     const activeAuctions = await Promise.all(
-      rows.map(async (auction) => {
+      rows.map(async auction => {
+        console.log('MAPPING TO AUCTION HERE', auction);
         try {
-          // Skip if no IPFS hash
-          if (!auction.ipfs_pin_hash) return null;
+          // Try Pinata gateway with retries
+          let response;
+          try {
+            response = await fetchWithRetry(`https://gateway.pinata.cloud/ipfs/${auction.ipfs_pin_hash}`);
+          } catch (pinataError) {
+            console.warn(`Pinata gateway failed for ${auction.ipfs_pin_hash}:`, pinataError);
+            response = await fetchWithRetry(`https://ipfs.io/ipfs/${auction.ipfs_pin_hash}`);
+          }
 
-          // Get current time once for all comparisons
-          const currentTime = new Date();
-          const endTime = new Date(auction.metadata?.keyvalues?.endTime);
+          const metadata = await response.json();
+          console.log('METADATA FETCHED', metadata);
 
-          // Skip expired auctions
-          if (endTime <= currentTime) return null;
-
-          // Fetch metadata from IPFS
-          const metadataResponse = await fetch(
-            `https://gateway.pinata.cloud/ipfs/${auction.ipfs_pin_hash}`
-          );
-          
-
-          if (!metadataResponse.ok) {
-            console.warn(`Failed to fetch metadata for ${auction.ipfs_pin_hash}`);
+          // Skip if no metadata or invalid structure
+          if (!metadata || !metadata.attributes) {
+            console.error(`Invalid metadata structure for ${auction.ipfs_pin_hash}`, metadata);
             return null;
           }
 
-          const metadata: AuctionMetadata = await metadataResponse.json();
+          const endTimeStr = metadata.attributes.endTime;
+          if (!endTimeStr || typeof endTimeStr !== 'string') {
+            console.error(`Invalid endTime for ${auction.ipfs_pin_hash}: ${endTimeStr}`);
+            return null;
+          }
 
-          // Construct response object
+          const endTime = new Date(endTimeStr);
+          if (isNaN(endTime.getTime())) {
+            console.error(`Invalid endTime format for ${auction.ipfs_pin_hash}: ${endTimeStr}`);
+            return null;
+          }
+
+          // Skip expired auctions
+          if (endTime <= currentTime) {
+            console.log(`Expired auction for ${auction.ipfs_pin_hash}: endTime=${endTimeStr}`);
+            return null;
+          }
+
+          // Construct the auction object
           return {
             id: auction.ipfs_pin_hash,
-            title: metadata.name,
-            description: metadata.description,
-            image: `https://gateway.pinata.cloud/ipfs/${metadata.image.replace('ipfs://', '')}`,
-            category: metadata.attributes.category,
-            currentBid: metadata.attributes.currentBid || metadata.attributes.startingBid,
-            startingBid: metadata.attributes.startingBid,
-            endTime: metadata.attributes.endTime,
-            created: metadata.attributes.created,
+            title: metadata.name || 'Untitled Auction',
+            description: metadata.description || '',
+            category: metadata.attributes.category || 'Uncategorized',
+            startingBid: Number(metadata.attributes.startingBid) || 0,
+            currentBid: Number(metadata.attributes.currentBid) || Number(metadata.attributes.startingBid) || 0,
             seller: {
-              address: metadata.attributes.sellerAddress,
-              name: metadata.attributes.sellerName || "Anonymous",
+              address: metadata.attributes.sellerAddress || '',
+              name: metadata.attributes.sellerName || '',
               verified: metadata.attributes.sellerVerified || false,
             },
+            created: metadata.attributes.created || new Date().toISOString(),
+            endTime: endTimeStr,
+            image: metadata.image?.startsWith('ipfs://')
+              ? `https://gateway.pinata.cloud/ipfs/${metadata.image.replace('ipfs://', '')}`
+              : metadata.image || `https://gateway.pinata.cloud/ipfs/${auction.ipfs_pin_hash}`,
             bids: metadata.attributes.bids || [],
-          } as AuctionResponse;
+            status: 'active',
+          };
         } catch (error) {
           console.error(`Error processing auction ${auction.ipfs_pin_hash}:`, error);
           return null;
@@ -123,17 +164,16 @@ export async function GET() {
       })
     );
 
-    // Filter out null values and return successful results
-    const validAuctions = activeAuctions.filter(auction => auction !== null) as AuctionResponse[];
-    
-    return NextResponse.json(validAuctions, { status: 200 });
-
+    // Filter out null values and return
+    const filteredAuctions = activeAuctions.filter(Boolean);
+    console.log('ACTIVE AUCTIONS', filteredAuctions);
+    return NextResponse.json(filteredAuctions);
   } catch (error) {
     console.error("Failed to fetch auctions:", error);
     return NextResponse.json(
-      { 
+      {
         error: "Failed to fetch auctions",
-        message: error instanceof Error ? error.message : "Unknown error"
+        message: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

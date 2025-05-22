@@ -22,7 +22,8 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "next/*": ["./node_modules/next/*"]
+      "next/*": ["./node_modules/next/*"],
+      "@contracts/*": ["./smart-contracts/artifacts/contracts/*"]
     },
     "types": ["next", "node"]
   },

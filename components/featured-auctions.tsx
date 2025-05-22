@@ -74,7 +74,7 @@ export function FeaturedAuctions() {
               <div className="mt-2 flex items-baseline justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Current Bid</p>
-                  <p className="font-semibold">{auction.currentBid} LSK</p>
+                  <p className="font-semibold">{auction.currentBid} AVX</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Ends in</p>

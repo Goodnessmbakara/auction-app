@@ -1,33 +1,22 @@
+// app/dashboard/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
-import axios from "axios";
+import axios from "axios"
 import { useAccount } from "wagmi"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Raleway, Poppins } from "next/font/google"
-import { 
-  Clock, 
-  Trophy, 
-  History, 
-  Wallet, 
-  Plus, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Sparkles
-} from "lucide-react"
+import { Clock, Trophy, History, Wallet, Plus, ArrowUpRight, ArrowDownRight, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { AuctionCountdown } from "@/components/auction-countdown"
-import { ethers } from "ethers";
+import { ethers } from "ethers"
 
 const raleway = Raleway({ subsets: ["latin"] })
-const poppins = Poppins({ 
-  weight: ['400', '500', '600'],
-  subsets: ["latin"] 
-})
+const poppins = Poppins({ weight: ['400', '500', '600'], subsets: ["latin"] })
 
 interface Auction {
   id: string;
@@ -48,62 +37,92 @@ export default function DashboardPage() {
   const { toast } = useToast()
   const [balance, setBalance] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(true)
-
-  const [activeAuctions, setActiveAuctions] = useState<Auction[]>([]);
-  const [bids, setBids] = useState<Auction[]>([]);
-  const [wonAuctions, setWonAuctions] = useState<Auction[]>([]);
-  const [transactions, setTransactions] = useState<Auction[]>([]);
+  const [activeAuctions, setActiveAuctions] = useState<Auction[]>([])
+  const [bids, setBids] = useState<Auction[]>([])
+  const [wonAuctions, setWonAuctions] = useState<Auction[]>([])
+  const [transactions, setTransactions] = useState<Auction[]>([])
 
   useEffect(() => {
     if (!isConnected || !address) return;
 
     const fetchData = async () => {
       try {
-        setLoading(true);
-        // Replace with your actual API endpoints
+        setLoading(true)
         const [auctionsRes, bidsRes, winsRes, txsRes] = await Promise.all([
           axios.get(`/api/auction/user-auctions?address=${address}`),
           axios.get(`/api/auction/user-bids?address=${address}`),
           axios.get(`/api/auction/user-wins?address=${address}`),
           axios.get(`/api/auction/user-transactions?address=${address}`),
-        ]);
-        
-        setActiveAuctions(auctionsRes.data);
-        setBids(bidsRes.data);
-        setWonAuctions(winsRes.data);
-        setTransactions(txsRes.data);
-        // Fetch real wallet balance
+        ])
+
+        // Sanitize data to ensure plain objects
+        const sanitizeData = (data: any): Auction[] => {
+          return data.map((item: any) => {
+            const sanitized: Auction = {
+              id: item.id || '',
+              title: item.title || 'Untitled Auction',
+              image: item.image || '',
+              currentBid: Number(item.currentBid) || 0,
+              bids: Number(item.bids) || 0,
+              endTime: item.endTime || '',
+              status: item.status || 'unknown',
+              winningBid: item.winningBid ? Number(item.winningBid) : undefined,
+              timestamp: item.timestamp || undefined,
+              amount: item.amount ? Number(item.amount) : undefined,
+              type: item.type || undefined,
+            }
+            // Remove any non-serializable properties
+            Object.keys(sanitized).forEach(key => {
+              if (sanitized[key as keyof Auction] instanceof Set) {
+                console.error(`Set detected in ${key} for auction ${item.id}`)
+                sanitized[key as keyof Auction] = undefined
+              }
+            })
+            return sanitized
+          })
+        }
+
+        console.log("User auctions:", auctionsRes.data)
+        console.log("User bids:", bidsRes.data)
+        console.log("User wins:", winsRes.data)
+        console.log("User transactions:", txsRes.data)
+
+        setActiveAuctions(sanitizeData(auctionsRes.data))
+        setBids(sanitizeData(bidsRes.data))
+        setWonAuctions(sanitizeData(winsRes.data))
+        setTransactions(sanitizeData(txsRes.data))
+
         if (typeof window !== 'undefined' && window.ethereum) {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const bal = await provider.getBalance(address);
-          setBalance(Number(ethers.formatEther(bal)));
+          const provider = new ethers.BrowserProvider(window.ethereum)
+          const bal = await provider.getBalance(address)
+          setBalance(Number(ethers.formatEther(bal)))
         }
       } catch (err) {
-        console.error("Failed to fetch dashboard data:", err);
+        console.error("Failed to fetch dashboard data:", err)
         toast({
           title: "Error",
           description: "Failed to fetch dashboard data.",
           variant: "destructive",
-        });
+        })
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchData();
-  }, [address, isConnected, toast]);
+    fetchData()
+  }, [address, isConnected, toast])
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "Invalid date";
-    
+    if (!dateString) return "Invalid date"
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return "Invalid date"
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
-    });
+      minute: '2-digit',
+    })
   }
 
   if (!isConnected) {
@@ -118,7 +137,7 @@ export default function DashboardPage() {
           </CardHeader>
         </Card>
       </div>
-    );
+    )
   }
 
   if (loading) {
@@ -148,7 +167,7 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -220,7 +239,7 @@ export default function DashboardPage() {
             <Wallet className="h-4 w-4 text-[#EC38BC]" />
           </CardHeader>
           <CardContent>
-            <div className={`${raleway.className} text-2xl font-bold text-white`}>{balance} AVAX</div>
+            <div className={`${raleway.className} text-2xl font-bold text-white`}>{balance.toFixed(4)} AVAX</div>
             <p className={`${poppins.className} text-xs text-[#EC38BC]`}>
               Available balance
             </p>
@@ -272,7 +291,7 @@ export default function DashboardPage() {
                       <div className={`${poppins.className} text-sm text-[#EC38BC]`}>
                         Ends in
                       </div>
-                      <AuctionCountdown endTime={new Date(auction.endTime)} />
+                      <AuctionCountdown endTime={auction.endTime} />
                     </div>
                   </div>
                 </CardContent>
@@ -296,11 +315,11 @@ export default function DashboardPage() {
                     <div>
                       <h3 className={`${raleway.className} text-lg font-semibold text-white`}>{bid.title}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`${
-                            bid.status === 'active' 
-                              ? 'border-green-500 text-green-500' 
+                            bid.status === 'active'
+                              ? 'border-green-500 text-green-500'
                               : 'border-red-500 text-red-500'
                           }`}
                         >

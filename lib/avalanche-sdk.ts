@@ -1,8 +1,9 @@
 import { ethers } from 'ethers'
+import AuctionFactoryABI from '../smart-contracts/artifacts/contracts/AuctionFactory.sol/AuctionFactory.json';
 
 // TODO: Replace with your actual contract ABI and address
-const AUCTION_CONTRACT_ABI = []
-const AUCTION_CONTRACT_ADDRESS = ''
+const AUCTION_CONTRACT_ABI = [AuctionFactoryABI]
+const AUCTION_CONTRACT_ADDRESS = '0x775b594496D7365C5Be22B8bd5Cd6188a995c1d9'
 
 export async function placeBidOnAvalanche({
   auctionId,

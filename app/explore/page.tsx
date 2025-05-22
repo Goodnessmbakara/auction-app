@@ -50,7 +50,8 @@ export default function ExplorePage() {
             id: cat.toLowerCase().replace(/\s+/g, "-"),
             name: cat,
           }));
-        setCategories(uniqueCategories);
+        setCategories([{ id: "all", name: "All" }, ...uniqueCategories]);
+		setSelectedCategories(["all"]); 
       } catch (error) {
         console.error('Error fetching auctions:', error);
       } finally {
@@ -61,62 +62,63 @@ export default function ExplorePage() {
   }, []);
 
   // Apply filters with debounced search
-  useEffect(() => {
-    let filtered = [...auctions];
+  // ...existing code...
+useEffect(() => {
+  let filtered = [...auctions];
 
-    if (debouncedSearchQuery) {
-      const query = debouncedSearchQuery.toLowerCase();
-      filtered = filtered.filter((auction) =>
-        auction.title.toLowerCase().includes(query) ||
-        auction.description.toLowerCase().includes(query) ||
-        auction.category.toLowerCase().includes(query)
-      );
-    }
-
-    if (selectedCategories.length > 0) {
-      filtered = filtered.filter((auction) =>
-        selectedCategories.includes(
-          auction.category.toLowerCase().replace(/\s+/g, "-")
-        )
-      );
-    }
-
-    filtered = filtered.filter(
-      (auction) =>
-        auction.currentBid >= priceRange[0] &&
-        auction.currentBid <= priceRange[1]
+  if (debouncedSearchQuery) {
+    const query = debouncedSearchQuery.toLowerCase();
+    filtered = filtered.filter((auction) =>
+      auction.title.toLowerCase().includes(query) ||
+      auction.description.toLowerCase().includes(query) ||
+      auction.category.toLowerCase().includes(query)
     );
-
-    if (!showEnded) {
-      filtered = filtered.filter(
-        (auction) => new Date(auction.endTime).getTime() > Date.now()
-      );
-    }
-
-    // Sort
-    switch (sortBy) {
-      case "ending-soon":
-        filtered.sort((a, b) => new Date(a.endTime).getTime() - new Date(b.endTime).getTime())
-        break
-      case "price-high-low":
-        filtered.sort((a, b) => b.currentBid - a.currentBid)
-        break
-      case "price-low-high":
-        filtered.sort((a, b) => a.currentBid - b.currentBid)
-        break
-      case "recently-added":
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        break
-    }
-
-    setFilteredAuctions(filtered)
-  }, [debouncedSearchQuery, selectedCategories, priceRange, sortBy, showEnded, auctions])
-
-  const toggleCategory = (categoryId: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId],
-    )
+    console.log("After search filter:", filtered);
   }
+
+  if (selectedCategories.length > 0 && !selectedCategories.includes("all")) {
+  filtered = filtered.filter((auction) =>
+    selectedCategories.includes(
+      auction.category.toLowerCase().replace(/\s+/g, "-")
+    )
+  );
+  console.log("After category filter:", filtered);
+}
+
+//   filtered = filtered.filter(
+//     (auction) =>
+//       auction.startingBid >= priceRange[0] &&
+//       auction.startingBid <= priceRange[1]
+//   );
+//   console.log("After price filter:", filtered);
+
+  if (!showEnded) {
+    filtered = filtered.filter(
+      (auction) => new Date(auction.endTime).getTime() > Date.now()
+    );
+    console.log("After ended filter:", filtered);
+  }
+
+  // ...sorting...
+
+  setFilteredAuctions(filtered)
+}, [debouncedSearchQuery, selectedCategories, priceRange, sortBy, showEnded, auctions])
+// ...existing code...
+
+  // ...existing code...
+const toggleCategory = (categoryId: string) => {
+  if (categoryId === "all") {
+    setSelectedCategories(["all"]);
+  } else {
+    setSelectedCategories((prev) => {
+      const newSelected = prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev.filter((id) => id !== "all"), categoryId];
+      return newSelected.length === 0 ? ["all"] : newSelected;
+    });
+  }
+};
+// ...existing code...
 
   const clearFilters = () => {
     setSearchQuery("")
@@ -314,7 +316,7 @@ export default function ExplorePage() {
                     <div className="relative aspect-square overflow-hidden">
                       <Badge className="absolute left-2 top-2 z-10">{auction.category}</Badge>
                       <Image
-                        src={auction.imageUrl || "/placeholder.jpg"}
+                        src={auction.image || "/placeholder.jpg"}
                         alt={auction.title}
                         width={400}
                         height={400}

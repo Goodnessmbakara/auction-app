@@ -70,7 +70,7 @@ async function fetchWithRetry(url: string, retries = 3, timeout = 15000): Promis
     } catch (error) {
       console.error(`Fetch attempt ${attempt} error for ${url}:`, error);
       if (attempt === retries) throw error;
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
   }
   throw new Error(`Failed to fetch ${url} after ${retries} attempts`);
@@ -106,7 +106,6 @@ export async function GET() {
             response = await fetchWithRetry(`https://gateway.pinata.cloud/ipfs/${auction.ipfs_pin_hash}`);
           } catch (pinataError) {
             console.warn(`Pinata gateway failed for ${auction.ipfs_pin_hash}:`, pinataError);
-            // Fallback to ipfs.io gateway
             response = await fetchWithRetry(`https://ipfs.io/ipfs/${auction.ipfs_pin_hash}`);
           }
 

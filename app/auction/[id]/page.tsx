@@ -17,6 +17,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useSocket } from '@/hooks/use-socket';
 import { ethers } from "ethers";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import Auction from '@/smart-contracts/artifacts/contracts/Auction.sol/Auction.json';
 
 const raleway = Raleway({ subsets: ["latin"] });
 const poppins = Poppins({ 
@@ -139,24 +140,50 @@ export default function AuctionDetailPage() {
 
     try {
       setIsBidding(true);
-      const response = await fetch(`/api/auction/${id}/bid`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bidder: address,
-          bidAmount,
-        }),
+
+      // Create provider and signer
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+
+      // Create contract instance
+      const auctionContract = new ethers.Contract(
+        id as string,
+        Auction.abi,
+        signer
+      );
+
+      // Place bid
+      const tx = await auctionContract.bid({
+        value: ethers.parseEther(bidAmount.toString())
       });
 
-      const data = await response.json();
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to place bid');
+      // Get the NewHighestBid event
+      const event = receipt.logs.find(
+        (log: any) => log.fragment?.name === 'NewHighestBid'
+      );
+
+      if (!event) {
+        throw new Error('NewHighestBid event not found');
       }
 
-      // The socket will handle the UI update
+      // Update UI
+      setAuction(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          currentBid: bidAmount,
+          highestBidder: address,
+          bids: [{
+            bidder: address,
+            amount: bidAmount,
+            time: new Date().toISOString()
+          }, ...prev.bids]
+        };
+      });
+
       toast({
         title: "Success",
         description: "Your bid has been placed successfully",

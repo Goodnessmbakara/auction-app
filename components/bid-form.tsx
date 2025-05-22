@@ -25,6 +25,14 @@ export function BidForm({ currentBid, minIncrement, onPlaceBid, isLoading = fals
   const [bidAmount, setBidAmount] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
 
+  const formatAvax = (amount: number) => {
+    try {
+      return ethers.formatEther(ethers.parseEther(amount.toString()));
+    } catch (error) {
+      return amount.toString();
+    }
+  }
+
   const validateBid = (amount: number): string | null => {
     if (isNaN(amount) || amount <= 0) {
       return "Bid amount must be greater than 0"
@@ -32,7 +40,7 @@ export function BidForm({ currentBid, minIncrement, onPlaceBid, isLoading = fals
 
     const minBid = currentBid + minIncrement
     if (amount < minBid) {
-      return `Minimum bid must be ${ethers.formatEther(minBid)} AVAX`
+      return `Minimum bid must be ${formatAvax(minBid)} AVAX`
     }
 
     // Check if bid amount is too high (e.g., 100x current bid)
@@ -76,7 +84,7 @@ export function BidForm({ currentBid, minIncrement, onPlaceBid, isLoading = fals
 
       toast({
         title: "Bid Placed",
-        description: `Your bid of ${ethers.formatEther(amount)} AVAX has been placed successfully.`,
+        description: `Your bid of ${formatAvax(amount)} AVAX has been placed successfully.`,
       })
     } catch (error) {
       console.error("Error placing bid:", error)
@@ -103,7 +111,7 @@ export function BidForm({ currentBid, minIncrement, onPlaceBid, isLoading = fals
           min={currentBid + minIncrement}
           value={bidAmount}
           onChange={(e) => handleBidChange(e.target.value)}
-          placeholder={`Minimum: ${ethers.formatEther(currentBid + minIncrement)} AVAX`}
+          placeholder={`Minimum: ${formatAvax(currentBid + minIncrement)} AVAX`}
           className={error ? "border-red-500" : ""}
         />
         {error && (
@@ -120,7 +128,7 @@ export function BidForm({ currentBid, minIncrement, onPlaceBid, isLoading = fals
             onClick={() => handleBidChange(bid.toString())}
             className="flex-1"
           >
-            {ethers.formatEther(bid)} AVAX
+            {formatAvax(bid)} AVAX
           </Button>
         ))}
       </div>

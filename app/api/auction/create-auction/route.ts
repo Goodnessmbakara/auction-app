@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { Readable } from "stream";
+import { parseFormData } from "@/lib/form-data";
+import { uploadToPinata } from "@/lib/pinata";
 import pinataSDK from '@pinata/sdk';
-import { ethers } from 'ethers';
-import { createAuctionContract } from '@/lib/blockchain';
+import { Readable } from 'stream';
+
+if (!process.env.PINATA_API_KEY || !process.env.PINATA_SECRET_API_KEY) {
+  throw new Error("Pinata credentials are not configured");
+}
 
 const pinata = new pinataSDK(
-  process.env.PINATA_API_KEY!,
-  process.env.PINATA_SECRET_API_KEY!
+  process.env.PINATA_API_KEY,
+  process.env.PINATA_SECRET_API_KEY
 );
 
 export const config = {
@@ -91,23 +95,17 @@ export async function POST(request: Request) {
       }
     });
 
-    // 4. Return the data needed for client-side transaction
+    // 4. Return the data needed for client-side blockchain interaction
     return NextResponse.json({
       success: true,
       imageCID,
       metadataCID,
-      transactionData: {
-        title: fields.title || 'Untitled Auction',
-        metadataCID,
-        startingBid: Number(fields.startingBid),
-        duration: Number(fields.duration),
-      },
     });
   } catch (err) {
     console.error("Error in auction creation:", err);
     return NextResponse.json(
       {
-        error: "Failed to create auction",
+        error: "Failed to upload auction data",
         details: err instanceof Error ? err.message : "Unknown error",
       },
       { status: 500 }

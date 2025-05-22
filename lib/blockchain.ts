@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import AuctionFactory from '../smart-contracts/artifacts/contracts/AuctionFactory.sol/AuctionFactory.json';
+import Auction from '../smart-contracts/artifacts/contracts/Auction.sol/Auction.json';
 
 // Initialize provider and contract
 const provider = new ethers.JsonRpcProvider(process.env.AVALANCHE_RPC_URL);
@@ -61,7 +62,44 @@ export async function createAuctionContract(
 export async function getAuctionContract(address: string) {
   return new ethers.Contract(
     address,
-    AuctionFactory.abi,
+    Auction.abi,
     provider
   );
+}
+
+export async function getAuctionDetails(address: string) {
+  try {
+    const auctionContract = await getAuctionContract(address);
+    const details = await auctionContract.getAuctionDetails();
+    
+    return {
+      seller: details[0],
+      title: details[1],
+      ipfsImageHash: details[2],
+      startingBid: ethers.formatEther(details[3]),
+      endTime: new Date(Number(details[4]) * 1000).toISOString(),
+      ended: details[5],
+      highestBidder: details[6],
+      highestBid: ethers.formatEther(details[7])
+    };
+  } catch (error) {
+    console.error('Error getting auction details:', error);
+    throw error;
+  }
+}
+
+export async function getAuctionFactoryEvents() {
+  try {
+    const filter = factoryContract.filters.AuctionCreated();
+    const events = await factoryContract.queryFilter(filter);
+    
+    return events.map(event => ({
+      auctionAddress: event.args[0],
+      seller: event.args[1],
+      timestamp: new Date(event.blockTimestamp * 1000).toISOString()
+    }));
+  } catch (error) {
+    console.error('Error getting auction factory events:', error);
+    throw error;
+  }
 } 

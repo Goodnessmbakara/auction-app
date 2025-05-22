@@ -18,6 +18,7 @@ import { compressImage } from '@/lib/image-compression'
 import { raleway, poppins } from '@/lib/fonts'
 import { createAuctionContract } from '@/lib/contracts'
 import type { FormData } from '@/types/auction'
+import { useRouter } from "next/navigation"
 
 export default function CreateAuctionPage() {
   const { toast } = useToast()
@@ -40,6 +41,8 @@ export default function CreateAuctionPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+
+  const router = useRouter()
 
   useEffect(() => {
     setIsMounted(true)
@@ -142,46 +145,63 @@ export default function CreateAuctionPage() {
 
     try {
       setIsSubmitting(true);
-      setTransactionStatus({ step: 'uploading', message: 'Uploading image to IPFS...' });
 
-      const formDataToSend = new FormData();
-      formDataToSend.append('title', formData.title);
-      formDataToSend.append('description', formData.description);
-      formDataToSend.append('category', formData.category);
-      formDataToSend.append('startingBid', formData.startingBid.toString());
-      formDataToSend.append('duration', formData.duration.toString());
-      formDataToSend.append('sellerAddress', address);
-      formDataToSend.append('image', formData.image);
-
+      // First, handle blockchain interaction
       setTransactionStatus({ step: 'creating', message: 'Creating auction on blockchain...' });
       
-      const response = await fetch("/api/auction/create-auction", {
-        method: "POST",
-        body: formDataToSend,
-      });
+      try {
+        // Create auction contract on blockchain first
+        const auctionAddress = await createAuctionContract(
+          formData.title,
+          'temp-cid', // We'll update this after IPFS upload
+          formData.startingBid,
+          formData.duration,
+          window.ethereum
+        );
 
-      const data = await response.json();
+        // Now upload to IPFS
+        setTransactionStatus({ step: 'uploading', message: 'Uploading image to IPFS...' });
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create auction");
+        const formDataToSend = new FormData();
+        formDataToSend.append('title', formData.title);
+        formDataToSend.append('description', formData.description);
+        formDataToSend.append('category', formData.category);
+        formDataToSend.append('startingBid', formData.startingBid.toString());
+        formDataToSend.append('duration', formData.duration.toString());
+        formDataToSend.append('sellerAddress', address);
+        formDataToSend.append('auctionAddress', auctionAddress);
+        if (formData.image) {
+          formDataToSend.append('image', formData.image);
+        }
+        
+        const response = await fetch("/api/auction/create-auction", {
+          method: "POST",
+          body: formDataToSend,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to upload auction data");
+        }
+
+        setTransactionStatus({ step: 'complete', message: 'Auction created successfully!' });
+
+        toast({
+          title: "Success!",
+          description: "Your auction has been created successfully. Redirecting to dashboard...",
+        });
+
+        // Use router for navigation
+        router.push('/dashboard');
+      } catch (error) {
+        console.error("Transaction failed:", error);
+        toast({
+          title: "Transaction Failed",
+          description: error instanceof Error ? error.message : "Failed to create auction",
+          variant: "destructive",
+        });
       }
-
-      const auctionAddress = await createAuctionContract(
-        data.transactionData.title,
-        data.transactionData.metadataCID,
-        data.transactionData.startingBid,
-        data.transactionData.duration,
-        window.ethereum
-      );
-
-      setTransactionStatus({ step: 'complete', message: 'Auction created successfully!' });
-
-      toast({
-        title: "Success!",
-        description: "Your auction has been created successfully.",
-      });
-
-      window.location.href = `/auction/${auctionAddress}`;
     } catch (error) {
       console.error("Error creating auction:", error);
       toast({

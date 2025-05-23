@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 import AuctionFactoryABI from '../smart-contracts/artifacts/contracts/AuctionFactory.sol/AuctionFactory.json';
 
 // Make sure this matches your deployed contract address
-const AUCTION_FACTORY_ADDRESS = '0x775b594496D7365C5Be22B8bd5Cd6188a995c1d9'; // Replace with your actual deployed contract address
+const AUCTION_FACTORY_ADDRESS = '0x2F72BAeD02B119A64594aA4cad157707b8f85649'; // Replace with your actual deployed contract address
 
 export async function createAuctionContract(
   title: string,

@@ -1,11 +1,12 @@
 import { http, createConfig } from 'wagmi'
-import { base, mainnet, optimism } from 'wagmi/chains'
+import { avalancheFuji} from 'wagmi/chains'
 import { injected, metaMask, safe, walletConnect } from 'wagmi/connectors'
+
 
 const projectId = 'e21343657a112adab1bc42ddde78c8fd'
 
 export const config = createConfig({
-  chains: [mainnet, base],
+  chains: [avalancheFuji],
   connectors: [
     injected(),
     walletConnect({ projectId }),
@@ -13,7 +14,6 @@ export const config = createConfig({
     safe(),
   ],
   transports: {
-    [mainnet.id]: http(),
-    [base.id]: http(),
+    [avalancheFuji.id]: http(),
   },
 })

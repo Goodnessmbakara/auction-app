@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import pinataSDK from '@pinata/sdk';
 import { ethers } from 'ethers';
-import { getAuctionContract } from '@/lib/blockchain';
+import { getAuctionContract } from '@/lib/contracts';
 
 // Initialize Pinata with proper error handling
 if (!process.env.PINATA_API_KEY || !process.env.PINATA_SECRET_API_KEY) {
@@ -28,6 +28,8 @@ interface AuctionMetadata {
     sellerName?: string;
     sellerVerified?: boolean;
     bids?: Array<{ amount: number; bidder: string; timestamp: string }>;
+    auctionAddress?: string;
+    transactionHash?: string;
   };
 }
 
@@ -44,6 +46,10 @@ interface AuctionResponse {
   imageUrl: string;
   status: string;
   bids: Array<{ amount: number; bidder: string; timestamp: string }>;
+  highestBidder?: string;
+  owner?: string;
+  auctionAddress?: string;
+  transactionHash?: string;
 }
 
 async function fetchWithRetry(url: string, retries = 3, timeout = 15000): Promise<Response> {
@@ -71,123 +77,65 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const auctionId = params.id;
+
   try {
-    const auctionId = params.id;
-    console.log(`Fetching auction with ID: ${auctionId}`);
-
-    // 1. Get auction metadata from Pinata
-    const { rows } = await pinata.pinList({
-      status: 'pinned',
-      metadata: {
-        keyvalues: {
-          type: { value: 'auction', op: 'eq' }, // Match create-auction metadata
-        },
-      },
-    });
-    console.log('PINATA PIN LIST:', rows);
-
-    const auctionPin = rows.find(row => row.ipfs_pin_hash === auctionId);
-    if (!auctionPin) {
-      console.error(`Auction not found in Pinata for ID: ${auctionId}`);
-      return NextResponse.json(
-        { error: "Auction not found" },
-        { status: 404 }
-      );
+    // 1. Fetch metadata from IPFS
+    const ipfsResponse = await fetch(`https://ipfs.io/ipfs/${auctionId}`);
+    if (!ipfsResponse.ok) {
+      throw new Error('Failed to fetch IPFS metadata');
     }
 
-    // Ensure keyvalues is a plain object
-    if (auctionPin.metadata.keyvalues instanceof Set) {
-      console.error(`Set detected in keyvalues for ${auctionId}`);
-      auctionPin.metadata.keyvalues = Object.fromEntries(auctionPin.metadata.keyvalues);
+    const metadata = await ipfsResponse.json();
+    console.log('METADATA FETCHED:', metadata);
+
+    // 2. Get contract address from metadata
+    const auctionAddress = metadata.attributes.auctionAddress;
+    if (!auctionAddress) {
+      throw new Error('Auction contract address not found in metadata');
     }
 
-    // 2. Fetch metadata from IPFS
-    let metadata: AuctionMetadata;
-    try {
-      const response = await fetchWithRetry(`https://gateway.pinata.cloud/ipfs/${auctionId}`);
-      metadata = await response.json();
-      console.log('METADATA FETCHED:', metadata);
-    } catch (error) {
-      console.error(`Failed to fetch metadata for ${auctionId}:`, error);
-      return NextResponse.json(
-        { error: "Failed to fetch auction metadata" },
-        { status: 500 }
-      );
-    }
-
-    if (!metadata || !metadata.attributes) {
-      console.error(`Invalid metadata structure for ${auctionId}:`, metadata);
-      return NextResponse.json(
-        { error: "Invalid auction metadata" },
-        { status: 400 }
-      );
-    }
-
-    // 3. Get auction contract data
+    // 3. Fetch contract data
     let contractData;
     try {
-      const auctionContract = await getAuctionContract(auctionId);
+      const provider = new ethers.JsonRpcProvider(process.env.AVALANCHE_RPC_URL);
+      const auctionContract = new ethers.Contract(
+        auctionAddress,
+        Auction.abi,
+        provider
+      );
       contractData = await auctionContract.getAuctionDetails();
       console.log('CONTRACT DATA:', contractData);
     } catch (error) {
       console.error(`Failed to fetch contract data for ${auctionId}:`, error);
-      // Proceed with metadata only if contract data is unavailable
-      contractData = null;
+      // Continue with IPFS data if contract fetch fails
     }
 
-    // 4. Combine Pinata and blockchain data
-    const auction: AuctionResponse = {
+    // 4. Combine IPFS and contract data
+    const auction = {
       id: auctionId,
-      title: metadata.name || 'Untitled Auction',
-      description: metadata.description || '',
-      category: metadata.attributes.category || 'Uncategorized',
-      startingBid: Number(metadata.attributes.startingBid) || 0,
-      currentBid: Number(metadata.attributes.currentBid) || Number(metadata.attributes.startingBid) || 0,
-      sellerAddress: metadata.attributes.sellerAddress || '',
-      createdAt: metadata.attributes.created || new Date().toISOString(),
-      endTime: metadata.attributes.endTime || new Date().toISOString(),
-      imageUrl: metadata.image?.startsWith('ipfs://')
-        ? `https://gateway.pinata.cloud/ipfs/${metadata.image.replace('ipfs://', '')}`
-        : metadata.image || `https://gateway.pinata.cloud/ipfs/${auctionId}`,
-      status: new Date(metadata.attributes.endTime) <= new Date() ? 'ended' : 'active',
-      bids: metadata.attributes.bids?.map(bid => ({
-        amount: Number(bid.amount) || 0,
-        bidder: bid.bidder || '',
-        timestamp: bid.timestamp || '',
-      })) || [],
+      title: metadata.name,
+      description: metadata.description,
+      category: metadata.attributes.category,
+      startingBid: metadata.attributes.startingBid,
+      currentBid: contractData?.currentBid || metadata.attributes.currentBid,
+      sellerAddress: metadata.attributes.sellerAddress,
+      createdAt: metadata.attributes.created,
+      endTime: metadata.attributes.endTime,
+      imageUrl: metadata.image.replace('ipfs://', 'https://ipfs.io/ipfs/'),
+      status: contractData?.status || 'active',
+      highestBidder: contractData?.highestBidder,
+      owner: contractData?.owner,
+      bids: metadata.attributes.bids,
+      auctionAddress: auctionAddress,
+      transactionHash: metadata.attributes.transactionHash
     };
-
-    // Override with contract data if available
-    if (contractData) {
-      const [
-        seller,
-        title,
-        ipfsImageHash,
-        startingBid,
-        endTime,
-        ended,
-        highestBidder,
-        highestBid,
-      ] = contractData;
-      auction.title = title || auction.title;
-      auction.sellerAddress = seller || auction.sellerAddress;
-      auction.startingBid = Number(ethers.formatEther(startingBid)) || auction.startingBid;
-      auction.currentBid = Number(ethers.formatEther(highestBid)) || auction.currentBid;
-      auction.endTime = new Date(Number(endTime) * 1000).toISOString() || auction.endTime;
-      auction.status = ended ? 'ended' : 'active';
-      auction.imageUrl = ipfsImageHash
-        ? `https://gateway.pinata.cloud/ipfs/${ipfsImageHash}`
-        : auction.imageUrl;
-    }
 
     return NextResponse.json(auction);
   } catch (error) {
-    console.error(`Error fetching auction ${params.id}:`, error);
+    console.error(`Error fetching auction ${auctionId}:`, error);
     return NextResponse.json(
-      {
-        error: "Failed to fetch auction",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: 'Failed to fetch auction' },
       { status: 500 }
     );
   }

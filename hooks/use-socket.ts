@@ -23,6 +23,10 @@ export function useSocket(auctionId: string) {
       addTrailingSlash: false,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      transports: ['websocket', 'polling'],
+      forceNew: true,
+      autoConnect: true,
+      withCredentials: true
     });
 
     socketInstance.on('connect', () => {

@@ -212,25 +212,36 @@ export default function AuctionDetailPage() {
 
     try {
       setIsClaiming(true);
-      const response = await fetch(`/api/auction/${id}/claim-funds`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sellerAddress: address,
-        }),
-      });
 
-      const data = await response.json();
+      // Create provider and signer
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to claim funds');
+      // Create contract instance
+      const auctionContract = new ethers.Contract(
+        id as string,
+        Auction.abi,
+        signer
+      );
+
+      // Claim funds
+      const tx = await auctionContract.claimFunds();
+      const receipt = await tx.wait();
+
+      // Get the FundsClaimed event
+      const event = receipt.logs.find(
+        (log: any) => log.fragment?.name === 'FundsClaimed'
+      );
+
+      if (!event) {
+        throw new Error('FundsClaimed event not found');
       }
+
+      const amount = ethers.formatEther(event.args.amount);
 
       toast({
         title: "Success",
-        description: `Successfully claimed ${data.amount} AVAX`,
+        description: `Successfully claimed ${amount} AVAX`,
       });
 
       // Update auction status
@@ -265,20 +276,29 @@ export default function AuctionDetailPage() {
 
     try {
       setIsClaimingItem(true);
-      const response = await fetch(`/api/auction/${id}/claim-item`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          winnerAddress: address,
-        }),
-      });
 
-      const data = await response.json();
+      // Create provider and signer
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to claim item');
+      // Create contract instance
+      const auctionContract = new ethers.Contract(
+        id as string,
+        Auction.abi,
+        signer
+      );
+
+      // Claim item
+      const tx = await auctionContract.claimItem();
+      const receipt = await tx.wait();
+
+      // Get the ItemClaimed event
+      const event = receipt.logs.find(
+        (log: any) => log.fragment?.name === 'ItemClaimed'
+      );
+
+      if (!event) {
+        throw new Error('ItemClaimed event not found');
       }
 
       toast({
@@ -292,7 +312,7 @@ export default function AuctionDetailPage() {
         return {
           ...prev,
           status: 'item-claimed',
-          owner: data.newOwner,
+          owner: address,
         };
       });
     } catch (error) {

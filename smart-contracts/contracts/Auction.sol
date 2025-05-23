@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.28;
 
 contract Auction {
     // Immutable state variables to save gas
     address public immutable seller;
     string public title;
     string public ipfsImageHash;
+    string public metadataCID; // Add metadata CID storage
     uint256 public immutable startingBid;
     uint256 public immutable endTime;
 
@@ -20,6 +21,8 @@ contract Auction {
     event NewHighestBid(address indexed bidder, uint256 amount);
     event AuctionEnded(address indexed winner, uint256 amount);
     event Refund(address indexed bidder, uint256 amount);
+    event MetadataUpdated(string metadataCID);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     constructor(
         address _seller,
@@ -45,6 +48,22 @@ contract Auction {
         _;
     }
 
+    // Add setMetadata function
+    function setMetadata(string memory _cid) external onlySeller {
+        require(bytes(_cid).length > 0, "Invalid metadata CID");
+        metadataCID = _cid;
+        emit MetadataUpdated(_cid);
+    }
+
+    // Add transferOwnership function
+    function transferOwnership(address newOwner) external onlySeller {
+        require(newOwner != address(0), "Invalid new owner");
+        require(newOwner != seller, "Already owner");
+        address oldOwner = seller;
+        // Note: We can't change the immutable seller variable, but we can track ownership separately
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+
     function bid() external payable onlyBeforeEnd {
         require(msg.value > highestBid, "Bid too low");
         require(msg.value >= startingBid, "Below starting bid");
@@ -68,7 +87,7 @@ contract Auction {
         ended = true;
         emit AuctionEnded(highestBidder, highestBid);
 
-        // Transfer funds to seller if there’s a winner
+        // Transfer funds to seller if there's a winner
         if (highestBidder != address(0)) {
             (bool success, ) = seller.call{value: highestBid}("");
             require(success, "Transfer failed");
@@ -106,6 +125,7 @@ contract Auction {
             address,
             string memory,
             string memory,
+            string memory,
             uint256,
             uint256,
             bool,
@@ -117,6 +137,7 @@ contract Auction {
             seller,
             title,
             ipfsImageHash,
+            metadataCID,
             startingBid,
             endTime,
             ended,

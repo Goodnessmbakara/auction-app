@@ -1,10 +1,11 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-verify";
 import "dotenv/config";
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.28",
+    version: "0.8.8",
     settings: {
       optimizer: {
         enabled: true,
@@ -21,7 +22,8 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-      fuji: "",
+      snowtrace: "snowtrace",
+      fuji: "snowtrace",
     },
     customChains: [
       {

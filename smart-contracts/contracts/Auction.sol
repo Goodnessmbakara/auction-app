@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.8;
 
-contract Auction {
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
+contract Auction is ReentrancyGuard {
     // Immutable state variables to save gas
     address public immutable seller;
     string public title;
@@ -31,11 +33,21 @@ contract Auction {
         uint256 _startingBid,
         uint256 _duration
     ) {
+        require(_seller != address(0), "Invalid seller address");
+        require(bytes(_title).length > 0, "Title cannot be empty");
+        require(bytes(_ipfsImageHash).length > 0, "IPFS hash cannot be empty");
+        require(_startingBid > 0, "Starting bid must be greater than 0");
+        require(_duration > 0, "Duration must be greater than 0");
+        
         seller = _seller;
         title = _title;
         ipfsImageHash = _ipfsImageHash;
         startingBid = _startingBid;
         endTime = block.timestamp + _duration;
+        
+        // Set initial highest bid
+        highestBid = _startingBid;
+        highestBidder = _seller;
     }
 
     modifier onlyBeforeEnd() {
@@ -80,7 +92,7 @@ contract Auction {
         emit NewHighestBid(msg.sender, msg.value);
     }
 
-    function endAuction() external onlySeller {
+    function endAuction() external nonReentrant onlySeller {
         require(block.timestamp >= endTime || !ended, "Auction not ended");
         require(!ended, "Already ended");
 
@@ -107,7 +119,7 @@ contract Auction {
         }
     }
 
-    function withdraw() external {
+    function withdraw() external nonReentrant {
         require(ended, "Auction not ended");
         uint256 amount = bids[msg.sender];
         require(amount > 0, "No funds");

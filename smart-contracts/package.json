@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@openzeppelin/contracts": "^4.9.3",
+    "ReentrancyGuard.sol": "link:@openzeppelin/contracts/security/ReentrancyGuard.sol",
     "ethers": "^6.13.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

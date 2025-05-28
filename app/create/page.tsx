@@ -23,14 +23,14 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { ArrowLeft, Upload, Sparkles, Loader2 } from "lucide-react";
-import { useAccount, useChainId, useWalletClient, usePublicClient, useContractWrite } from "wagmi";
+import { useAccount, useChainId, useWalletClient, usePublicClient, useContractWrite, useContractRead } from "wagmi";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 import { ConnectWalletButton } from "@/components/connect-wallet-button";
 import { compressImage } from "@/lib/image-compression";
 import { raleway, poppins } from "@/lib/fonts";
 import { useRouter } from "next/navigation";
-import { parseEther, formatEther } from "viem";
+import { parseEther, formatEther, keccak256, toBytes } from "viem";
 
 // Define the form data interface
 interface AuctionFormData {
@@ -44,61 +44,61 @@ interface AuctionFormData {
   sellerName?: string;
 }
 
-// Updated AuctionFactory ABI
+// Import the ABI from artifacts
 const AuctionFactoryABI = [
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "string",
-        name: "_title",
-        type: "string",
+        "indexed": true,
+        "internalType": "address",
+        "name": "auction",
+        "type": "address"
       },
       {
-        internalType: "string",
-        name: "_ipfsImageHash",
-        type: "string",
-      },
-      {
-        internalType: "uint256",
-        name: "_startingBid",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "_duration",
-        type: "uint256",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "seller",
+        "type": "address"
+      }
     ],
-    name: "createAuction",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "AuctionCreated",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "inputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "auction",
-        type: "address",
+        "internalType": "string",
+        "name": "_title",
+        "type": "string"
       },
       {
-        indexed: true,
-        internalType: "address",
-        name: "seller",
-        type: "address",
+        "internalType": "string",
+        "name": "_ipfsImageHash",
+        "type": "string"
       },
+      {
+        "internalType": "uint256",
+        "name": "_startingBid",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_duration",
+        "type": "uint256"
+      }
     ],
-    name: "AuctionCreated",
-    type: "event",
-  },
+    "name": "createAuction",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "function"
+  }
 ];
 
 // Auction ABI (aligned with Auction.sol)
@@ -226,21 +226,88 @@ export default function CreateAuctionPage() {
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const router = useRouter();
-  const AUCTION_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_AUCTION_FACTORY_ADDRESS;
+  const AUCTION_FACTORY_ADDRESS = "0xa931521EaE3C20ed274e8158ebAAB2b990E33D3C";
 
   // Prepare contract write
   const { writeContractAsync } = useContractWrite();
 
-  // Log the network and wallet status
+  // Add contract verification
   useEffect(() => {
-    console.log('Wallet status:', {
-      isConnected,
-      address,
-      chainId,
-      hasWalletClient: !!walletClient,
-      hasPublicClient: !!publicClient
-    });
-  }, [isConnected, address, chainId, walletClient, publicClient]);
+    let mounted = true;
+
+    const verifyContract = async () => {
+      if (!publicClient || !AUCTION_FACTORY_ADDRESS || !mounted) return;
+      
+      try {
+        const code = await publicClient.getBytecode({
+          address: AUCTION_FACTORY_ADDRESS as `0x${string}`
+        });
+        if (mounted) {
+          console.log('Contract Verification:', {
+            hasCode: !!code,
+            codeLength: code?.length,
+            address: AUCTION_FACTORY_ADDRESS,
+            chainId: await publicClient.getChainId()
+          });
+        }
+      } catch (error) {
+        if (mounted) {
+          console.error('Contract Verification Error:', error);
+        }
+      }
+    };
+
+    verifyContract();
+
+    return () => {
+      mounted = false;
+    };
+  }, [publicClient, AUCTION_FACTORY_ADDRESS]);
+
+  // Add event listener for ValueDetails
+  useEffect(() => {
+    let mounted = true;
+    let unwatch: (() => void) | undefined;
+
+    const setupEventListener = async () => {
+      if (!publicClient || !AUCTION_FACTORY_ADDRESS || !mounted) return;
+
+      try {
+        unwatch = publicClient.watchEvent({
+          address: AUCTION_FACTORY_ADDRESS as `0x${string}`,
+          event: {
+            type: 'event',
+            name: 'AuctionCreated',
+            inputs: [
+              { type: 'address', name: 'auction', indexed: true },
+              { type: 'address', name: 'seller', indexed: true }
+            ]
+          },
+          onLogs: (logs) => {
+            if (mounted) {
+              console.log('Auction Created Event:', {
+                auction: logs[0].args.auction,
+                seller: logs[0].args.seller
+              });
+            }
+          }
+        });
+      } catch (error) {
+        if (mounted) {
+          console.error('Error setting up event listener:', error);
+        }
+      }
+    };
+
+    setupEventListener();
+
+    return () => {
+      mounted = false;
+      if (unwatch) {
+        unwatch();
+      }
+    };
+  }, [publicClient, AUCTION_FACTORY_ADDRESS]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transactionStatus, setTransactionStatus] = useState<{
@@ -372,7 +439,9 @@ export default function CreateAuctionPage() {
       isConnected,
       address,
       hasWalletClient: !!walletClient,
-      hasPublicClient: !!publicClient
+      hasPublicClient: !!publicClient,
+      contractAddress: AUCTION_FACTORY_ADDRESS,
+      chainId: await publicClient?.getChainId()
     });
 
     if (!isConnected || !address || !walletClient) {
@@ -382,6 +451,20 @@ export default function CreateAuctionPage() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Wait for wallet client to be fully initialized
+    if (!walletClient) {
+      console.log('Waiting for wallet client to initialize...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!walletClient) {
+        toast({
+          title: "Wallet Error",
+          description: "Wallet client not initialized. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (!AUCTION_FACTORY_ADDRESS) {
@@ -427,83 +510,218 @@ export default function CreateAuctionPage() {
         throw new Error('Client not initialized');
       }
 
-      console.log('Preparing transaction...', {
-        address,
-        startingBid: formData.startingBid,
-        duration: formData.duration
-      });
-
       const balance = await publicClient.getBalance({ address });
       const startingBid = parseEther(formData.startingBid.toString());
-      
+      const durationInSeconds = BigInt(formData.duration * 24 * 60 * 60);
+
+      console.log('Transaction Values:', {
+        formDataStartingBid: formData.startingBid,
+        parsedStartingBid: startingBid.toString(),
+        startingBidInWei: startingBid.toString(),
+        balance: formatEther(balance),
+        hasEnoughBalance: balance >= startingBid,
+        contractAddress: AUCTION_FACTORY_ADDRESS
+      });
+
       // Get gas price using the correct method
       const gasPrice = await publicClient.getGasPrice();
       const maxPriorityFeePerGas = await publicClient.estimateMaxPriorityFeePerGas();
 
-      console.log('Gas parameters:', {
-        gasPrice: gasPrice.toString(),
-        maxPriorityFeePerGas: maxPriorityFeePerGas.toString()
+      // Ensure minimum gas price
+      const minGasPrice = 25n; // 25 gwei
+      const minPriorityFee = 1n; // 1 gwei
+      
+      let adjustedGasPrice = gasPrice < minGasPrice ? minGasPrice : gasPrice;
+      let adjustedPriorityFee = maxPriorityFeePerGas < minPriorityFee ? minPriorityFee : maxPriorityFeePerGas;
+
+      console.log('Gas Parameters:', {
+        originalGasPrice: gasPrice.toString(),
+        originalPriorityFee: maxPriorityFeePerGas.toString(),
+        adjustedGasPrice: adjustedGasPrice.toString(),
+        adjustedPriorityFee: adjustedPriorityFee.toString(),
+        minGasPrice: minGasPrice.toString(),
+        minPriorityFee: minPriorityFee.toString()
       });
 
-      const gasEstimate = await publicClient.estimateContractGas({
-        address: AUCTION_FACTORY_ADDRESS as `0x${string}`,
-        abi: AuctionFactoryABI,
-        functionName: 'createAuction',
-        args: [
-          formData.title,
-          imageCid,
-          startingBid,
-          BigInt(formData.duration * 24 * 60 * 60)
-        ],
-        account: address,
-      });
-
-      console.log('Gas estimate:', gasEstimate.toString());
-
-      const gasCost = gasEstimate * gasPrice;
-      const totalCost = startingBid + gasCost;
-
-      if (balance < totalCost) {
-        const formattedBalance = formatEther(balance);
-        const formattedRequired = formatEther(totalCost);
-        throw new Error(`Insufficient balance. You need ${formattedRequired} AVAX but have ${formattedBalance} AVAX`);
+      // Validate parameters before sending
+      if (!formData.title || !imageCid) {
+        throw new Error('Missing required parameters: title or image CID');
       }
 
-      setTransactionStatus({ step: 'creating', message: 'Please sign the transaction in your wallet to create the auction...' });
-
-      console.log('Sending transaction...', {
-        address: AUCTION_FACTORY_ADDRESS,
+      // Log the exact parameters being sent to the contract
+      const contractParams = {
+        title: formData.title,
+        imageCid,
+        startingBid: startingBid.toString(),
+        duration: durationInSeconds.toString(),
         value: startingBid.toString(),
-        gas: gasEstimate.toString()
+        contractAddress: AUCTION_FACTORY_ADDRESS,
+        sender: address
+      };
+      console.log('Contract Parameters:', contractParams);
+
+      // Add balance check before transaction
+      console.log('Balance Check:', {
+        balance: formatEther(balance),
+        startingBid: formatEther(startingBid),
+        hasEnoughBalance: balance >= startingBid
       });
 
-      // Create auction using the contract write hook
-      const hash = await writeContractAsync({
-        address: AUCTION_FACTORY_ADDRESS as `0x${string}`,
-        abi: AuctionFactoryABI,
-        functionName: 'createAuction',
-        args: [
-          formData.title,
-          imageCid,
-          startingBid,
-          BigInt(formData.duration * 24 * 60 * 60)
-        ],
-        value: startingBid,
-        gas: gasEstimate,
-        maxFeePerGas: gasPrice + maxPriorityFeePerGas,
-        maxPriorityFeePerGas,
-      });
+      if (balance < startingBid) {
+        toast({
+          title: "Insufficient Balance",
+          description: `You need at least ${formData.startingBid} AVAX to create this auction. Your current balance is ${formatEther(balance)} AVAX.`,
+          variant: "destructive",
+        });
+        return;
+      }
 
-      console.log('Transaction sent:', hash);
+      // Add retry logic for transaction
+      const maxRetries = 3;
+      let retryCount = 0;
+      let hash;
+
+      while (retryCount < maxRetries) {
+        try {
+          console.log(`Attempt ${retryCount + 1} to send transaction...`);
+          
+          // First, estimate gas
+          const gasEstimate = await publicClient.estimateContractGas({
+            address: AUCTION_FACTORY_ADDRESS as `0x${string}`,
+            abi: AuctionFactoryABI,
+            functionName: 'createAuction',
+            args: [
+              formData.title,
+              imageCid,
+              startingBid,
+              durationInSeconds
+            ],
+            value: startingBid,
+            account: address
+          });
+
+          console.log('Gas estimate:', {
+            estimate: gasEstimate.toString(),
+            adjusted: (gasEstimate * 120n / 100n).toString() // Add 20% buffer
+          });
+
+          // Send transaction with estimated gas
+          hash = await writeContractAsync({
+            address: AUCTION_FACTORY_ADDRESS as `0x${string}`,
+            abi: AuctionFactoryABI,
+            functionName: 'createAuction',
+            args: [
+              formData.title,
+              imageCid,
+              startingBid,
+              durationInSeconds
+            ],
+            value: startingBid,
+            gas: gasEstimate * 120n / 100n, // Add 20% buffer to gas estimate
+            maxFeePerGas: adjustedGasPrice + adjustedPriorityFee,
+            maxPriorityFeePerGas: adjustedPriorityFee
+          });
+
+          console.log('Transaction hash received:', hash);
+          break;
+        } catch (error: any) {
+          console.error(`Transaction attempt ${retryCount + 1} failed:`, {
+            error: error.message,
+            code: error.code,
+            data: error.data,
+            transaction: error.transaction
+          });
+          
+          // Check for specific error types
+          if (error.message?.includes('insufficient funds')) {
+            throw new Error('Insufficient funds to cover gas costs');
+          } else if (error.message?.includes('user rejected')) {
+            throw new Error('Transaction was rejected by user');
+          } else if (error.message?.includes('network changed')) {
+            console.log('Network changed, retrying...');
+            retryCount++;
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          } else if (error.message?.includes('Failed to transfer starting bid')) {
+            console.log('Transfer failed, retrying with higher gas...');
+            // Increase gas price for next attempt
+            adjustedGasPrice = adjustedGasPrice * 2n;
+            adjustedPriorityFee = adjustedPriorityFee * 2n;
+            retryCount++;
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          
+          retryCount++;
+          
+          if (retryCount === maxRetries) {
+            throw new Error(`Failed to send transaction after ${maxRetries} attempts: ${error.message}`);
+          }
+          
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+
+      if (!hash) {
+        throw new Error('Failed to get transaction hash');
+      }
+
       setTransactionStatus(prev => ({
         ...prev,
-        message: `Transaction submitted! Waiting for confirmation... Hash: ${hash}`,
+        message: `Transaction submitted! Hash: ${hash}`,
         hash
       }));
 
-      // Wait for transaction confirmation
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      // Poll for transaction confirmation with better error handling
+      let receipt = null;
+      let attempts = 0;
+      const maxAttempts = 60; // 5 minutes total (5 seconds * 60 attempts)
+      
+      while (!receipt && attempts < maxAttempts) {
+        try {
+          console.log(`Checking transaction status (attempt ${attempts + 1}/${maxAttempts})...`);
+          receipt = await publicClient.getTransactionReceipt({ hash });
+          
+          if (!receipt) {
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            setTransactionStatus(prev => ({
+              ...prev,
+              message: `Waiting for confirmation... (Attempt ${attempts}/${maxAttempts})`,
+              hash
+            }));
+          } else {
+            console.log('Transaction receipt received:', {
+              status: receipt.status,
+              blockNumber: receipt.blockNumber,
+              gasUsed: receipt.gasUsed.toString(),
+              effectiveGasPrice: receipt.effectiveGasPrice?.toString()
+            });
+          }
+        } catch (error: any) {
+          console.error('Error checking transaction status:', {
+            error: error.message,
+            code: error.code,
+            data: error.data
+          });
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+
+      if (!receipt) {
+        throw new Error('Transaction confirmation timed out. Please check your wallet for the transaction status.');
+      }
+
       console.log('Transaction receipt:', receipt);
+      
+      // Check if transaction was reverted
+      if (receipt.status === 'reverted') {
+        console.error('Transaction was reverted. Full receipt:', receipt);
+        throw new Error('Transaction was reverted by the contract. This usually means there was an error in the contract execution.');
+      }
+
       setTransactionStatus(prev => ({
         ...prev,
         message: `Transaction confirmed! Creating metadata...`,
@@ -511,15 +729,41 @@ export default function CreateAuctionPage() {
       }));
 
       // Get the auction address from the event
+      console.log('Looking for AuctionCreated event in logs:', receipt.logs);
+      
+      // First, let's log all event topics to see what we're getting
+      receipt.logs.forEach((log, index) => {
+        console.log(`Log ${index}:`, {
+          address: log.address,
+          topics: log.topics,
+          data: log.data
+        });
+      });
+
+      // Calculate the event signature hash
+      const eventSignature = 'AuctionCreated(address,address)';
+      const eventHash = keccak256(toBytes(eventSignature));
+      console.log('Looking for event hash:', eventHash);
+
       const auctionCreatedEvent = receipt.logs.find(
-        log => log.topics[0] === '0x...' // Add the event signature hash here
+        log => {
+          console.log('Checking log:', {
+            logTopic: log.topics[0],
+            eventHash,
+            matches: log.topics[0] === eventHash
+          });
+          return log.topics[0] === eventHash;
+        }
       );
       
       if (!auctionCreatedEvent) {
-        throw new Error('AuctionCreated event not found');
+        console.error('Event logs:', receipt.logs);
+        throw new Error('AuctionCreated event not found in transaction logs. Please check the contract implementation.');
       }
 
-      const auctionAddress = auctionCreatedEvent.topics[1]; // Adjust based on your event structure
+      // The auction address is the first indexed parameter in the event
+      const auctionAddress = auctionCreatedEvent.topics[1];
+      console.log('Auction address from event:', auctionAddress);
 
       // 3. Upload final metadata to IPFS
       setTransactionStatus({
@@ -569,7 +813,32 @@ export default function CreateAuctionPage() {
         args: [metadataCid],
       });
 
-      await publicClient.waitForTransactionReceipt({ hash: updateHash });
+      // Poll for metadata update confirmation
+      let updateReceipt = null;
+      attempts = 0;
+      
+      while (!updateReceipt && attempts < maxAttempts) {
+        try {
+          updateReceipt = await publicClient.getTransactionReceipt({ hash: updateHash });
+          if (!updateReceipt) {
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            setTransactionStatus(prev => ({
+              ...prev,
+              message: `Waiting for metadata update confirmation... (Attempt ${attempts}/${maxAttempts})`,
+              hash: updateHash
+            }));
+          }
+        } catch (error) {
+          console.log('Error checking metadata update status:', error);
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+
+      if (!updateReceipt) {
+        throw new Error('Metadata update confirmation timed out. Please check your wallet for the transaction status.');
+      }
 
       // Transfer ownership
       const ownershipHash = await writeContractAsync({
@@ -579,7 +848,32 @@ export default function CreateAuctionPage() {
         args: [address],
       });
 
-      await publicClient.waitForTransactionReceipt({ hash: ownershipHash });
+      // Poll for ownership transfer confirmation
+      let ownershipReceipt = null;
+      attempts = 0;
+      
+      while (!ownershipReceipt && attempts < maxAttempts) {
+        try {
+          ownershipReceipt = await publicClient.getTransactionReceipt({ hash: ownershipHash });
+          if (!ownershipReceipt) {
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            setTransactionStatus(prev => ({
+              ...prev,
+              message: `Waiting for ownership transfer confirmation... (Attempt ${attempts}/${maxAttempts})`,
+              hash: ownershipHash
+            }));
+          }
+        } catch (error) {
+          console.log('Error checking ownership transfer status:', error);
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+
+      if (!ownershipReceipt) {
+        throw new Error('Ownership transfer confirmation timed out. Please check your wallet for the transaction status.');
+      }
 
       setTransactionStatus({
         step: "complete",
@@ -621,12 +915,14 @@ export default function CreateAuctionPage() {
         errorMessage = "Transaction was rejected by user";
       } else if (error.message?.includes("reverted")) {
         errorMessage =
-          "Contract reverted. Check auction parameters or contract state.";
+          "Contract reverted. This usually means there was an error in the contract execution. Please check your input parameters and try again.";
       } else if (error.message?.includes("gas required exceeds allowance")) {
         errorMessage = "Transaction would exceed gas limit. Please try again.";
       } else if (error.message?.includes("insufficient funds for gas")) {
         errorMessage =
           "Insufficient funds to cover gas costs. Please add more AVAX to your wallet.";
+      } else if (error.message?.includes("timed out")) {
+        errorMessage = "Transaction is taking longer than expected. Please check your wallet for the transaction status.";
       }
 
       toast({
